@@ -14,7 +14,11 @@ claude plugin add elicoon/claude-code-skills
 
 | Skill | Description |
 |-------|-------------|
-| *Coming soon* | Skills will be added here |
+| [/code-review](skills/code-review/) | Deep code review with consistent criteria. Applies conventional commits, security checks, and documentation verification standards. |
+| [/write-plan](skills/write-plan/) | Create implementation plans with mandatory verification steps. Automatically appends code-review, test-feature, and commit tasks. |
+| [/test-feature](skills/test-feature/) | Structured end-to-end feature testing. Executes tests with actual output, reports results, creates bug tasks for failures. |
+| [/user-test](skills/user-test/) | Hands-free testing with auto-capture. Records screen + audio, captures console errors, creates bug tasks from verbal descriptions. |
+| [/uat](skills/uat/) | Generate UAT documentation and test checklists before implementation. Creates verification contracts across 7 test categories. |
 
 ## Structure
 
@@ -23,8 +27,21 @@ claude-code-skills/
 ├── .claude-plugin/
 │   └── plugin.json      # Plugin metadata
 ├── skills/              # Individual skill definitions
-│   └── [skill-name]/
-│       └── SKILL.md     # Skill instructions
+│   ├── code-review/
+│   │   ├── SKILL.md     # Skill instructions
+│   │   └── README.md    # Documentation
+│   ├── write-plan/
+│   │   ├── SKILL.md
+│   │   └── README.md
+│   ├── test-feature/
+│   │   ├── SKILL.md
+│   │   └── README.md
+│   ├── user-test/
+│   │   ├── SKILL.md
+│   │   └── README.md
+│   └── uat/
+│       ├── SKILL.md
+│       └── README.md
 └── README.md
 ```
 

@@ -4,7 +4,42 @@ Portable skills for Claude Code that enhance testing, code review, and planning 
 
 ## Installation
 
-Add this repository as a Claude Code plugin:
+### Option 1: Clone and register locally
+
+```bash
+# Clone the repository
+git clone https://github.com/elicoon/claude-code-skills.git
+
+# Register as a local plugin (run from Claude Code)
+# The plugin will be available at user scope across all projects
+```
+
+After cloning, add to your `~/.claude/plugins/installed_plugins.json`:
+
+```json
+{
+  "claude-code-skills@local": [
+    {
+      "scope": "user",
+      "installPath": "/path/to/claude-code-skills",
+      "version": "1.0.0",
+      "installedAt": "2026-01-31T00:00:00.000Z"
+    }
+  ]
+}
+```
+
+And enable in `~/.claude/settings.json`:
+
+```json
+{
+  "enabledPlugins": {
+    "claude-code-skills@local": true
+  }
+}
+```
+
+### Option 2: From GitHub (when published to marketplace)
 
 ```bash
 claude plugin add elicoon/claude-code-skills

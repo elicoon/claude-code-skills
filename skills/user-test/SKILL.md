@@ -1,6 +1,6 @@
 ---
 name: user-test
-description: Hands-free user testing. Eli tests and narrates, Claude captures everything, creates bug tasks, proposes fixes.
+description: Hands-free user testing. User tests and narrates, Claude captures everything, creates bug tasks, proposes fixes.
 ---
 
 # /dev-org:user-test
@@ -79,7 +79,7 @@ Wait 3 seconds for OBS to initialize.
 **Check if LocalVocal is producing output:**
 Check for recent files in `logs/transcripts/`:
 ```powershell
-Get-ChildItem "c:\Users\Eli\projects\dev-org\logs\transcripts" -ErrorAction SilentlyContinue | Where-Object { $_.LastWriteTime -gt (Get-Date).AddMinutes(-5) }
+Get-ChildItem "{LOGS_PATH}" -ErrorAction SilentlyContinue | Where-Object { $_.LastWriteTime -gt (Get-Date).AddMinutes(-5) }
 ```
 
 If no recent transcript files:
@@ -154,7 +154,7 @@ If degraded mode (no Chrome DevTools), instruct user:
 > Open Chrome and navigate to: [url]
 
 #### Step 7: Inject Coordinate Overlay
-Inject a floating tooltip that follows the cursor showing X,Y coordinates. This helps Eli verbally reference positions on the page during testing.
+Inject a floating tooltip that follows the cursor showing X,Y coordinates. This helps the user verbally reference positions on the page during testing.
 
 Use `mcp__plugin_playwright_playwright__browser_evaluate` with this function:
 
@@ -303,7 +303,7 @@ Content:
 - **Session:** user-test-[start-timestamp]
 - **Test:** `tests/bugs/<slug>.test.ts`
 
-#### What Eli Said
+#### What the User Said
 > "[Quote from audio transcription]"
 
 #### Technical Context
@@ -344,7 +344,7 @@ For each bug task created, generate a test file that fails when the bug exists a
 describe('[Bug Title]', () => {
   it('should [expected correct behavior]', () => {
     // Setup: recreate the conditions that trigger the bug
-    // Based on: [what Eli said / technical context]
+    // Based on: [what the user said / technical context]
 
     // Action: perform the operation that fails
 
@@ -407,7 +407,7 @@ If unable to create tests (no test framework, unclear reproduction):
 > Manual steps:
 > 1. Launch OBS Studio from Start Menu
 > 2. Verify LocalVocal filter is on your audio source
-> 3. Check LocalVocal output path: `c:\Users\Eli\projects\dev-org\logs\transcripts\`
+> 3. Check LocalVocal output path: `{LOGS_PATH}`
 > 4. Speak a test phrase and verify `.srt` file appears
 >
 > Can continue without OBS - will use ScreenPipe audio (less reliable).
@@ -465,5 +465,5 @@ If unable to create tests (no test framework, unclear reproduction):
 3. LocalVocal filter on the audio source with:
    - Model: Whisper Tiny English (or larger)
    - Output to file enabled
-   - Output path: `c:\Users\Eli\projects\dev-org\logs\transcripts\recording`
+   - Output path: `{LOGS_PATH}recording`
 4. OBS must be running during test sessions

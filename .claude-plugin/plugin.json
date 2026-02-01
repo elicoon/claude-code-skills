@@ -1,0 +1,8 @@
+{
+  "name": "claude-code-skills",
+  "version": "0.1.0",
+  "description": "Portable Claude Code skills for testing, code review, and planning workflows",
+  "author": "elicoon",
+  "repository": "https://github.com/elicoon/claude-code-skills",
+  "skills": []
+}

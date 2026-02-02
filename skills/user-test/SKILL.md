@@ -7,13 +7,26 @@ description: Hands-free user testing. User tests and narrates, Claude captures e
 
 Hands-free user testing with automatic capture.
 
+## Configuration
+
+This skill reads `.dev-org.yaml` from the project root if present. If no config file exists, default paths are used.
+
+**Config variables:**
+| Variable | Default | Purpose |
+|----------|---------|---------|
+| `{BACKLOG_PATH}` | `backlog/tasks/` | Where bug tasks are created |
+| `{USER_NAME}` | "the user" | Name used in descriptions and quotes |
+| `{LOGS_PATH}` | `logs/transcripts/` | Where audio transcripts are stored |
+| `{RECORDINGS_PATH}` | `logs/recordings/` | Where screen recordings are saved |
+
 **You just:**
 1. Start the session
 2. Use the product while talking
 3. Stop the session
 
 **Claude automatically:**
-- Records screen + audio (ScreenPipe)
+- Records screen via OBS (falls back to ScreenPipe if unavailable)
+- Records audio via OBS + LocalVocal (transcription)
 - Captures console errors + network failures (Chrome DevTools MCP)
 - Creates bug tasks tagged as bugs
 - Proposes fixes based on technical context
@@ -24,7 +37,8 @@ The skill will **automatically check and start** these prerequisites:
 
 | Component | Required | Auto-Start | Purpose |
 |-----------|----------|------------|---------|
-| ScreenPipe | Yes | ✅ Yes | Screen capture (OCR) |
+| OBS + WebSocket | Primary | ✅ Yes | Screen recording (high quality) |
+| ScreenPipe | Fallback | ✅ Yes | Screen capture (OCR + fallback recording) |
 | Chrome DevTools MCP | Recommended | ❌ No (MCP config) | Console + network capture |
 | OBS + LocalVocal | Recommended | ✅ Yes | Audio transcription |
 
@@ -35,17 +49,62 @@ If a component can't be auto-started, the skill will provide specific instructio
 | Command | What Happens |
 |---------|--------------|
 | `/dev-org:user-test start [url]` | Opens URL in Chrome, starts capture layers |
-| `/dev-org:user-test stop` | Analyzes session, creates bugs, proposes fixes |
+| `/dev-org:user-test stop` | Stops recording, analyzes session, creates bugs, proposes fixes |
 
 ---
 
 ## Instructions for Claude
 
+### Step 0: Load Configuration
+
+Before starting, check for `.dev-org.yaml` in the project root:
+- If found, read and use configured values
+- If not found, use defaults:
+  - `{BACKLOG_PATH}` → `backlog/tasks/`
+  - `{USER_NAME}` → "the user"
+  - `{LOGS_PATH}` → `logs/transcripts/`
+  - `{RECORDINGS_PATH}` → `logs/recordings/`
+
+---
+
 ### Mode: start
 
 When `/dev-org:user-test start [url]`:
 
-#### Step 1: Pre-Flight Check - ScreenPipe
+#### Step 1: Pre-Flight Check - OBS + WebSocket (Primary Screen Recording)
+
+**Check if OBS MCP tools are available:**
+Use ToolSearch to find OBS tools:
+```
+ToolSearch query: "+obs record"
+```
+
+**If OBS MCP tools found, check OBS connection:**
+Try calling `mcp__obs__get_version` to verify OBS is running and WebSocket is connected.
+
+**If OBS not running, auto-start:**
+```powershell
+Start-Process -FilePath "C:\Program Files\obs-studio\bin\64bit\obs64.exe" -ArgumentList "--minimize-to-tray"
+```
+
+Wait 5 seconds for OBS to initialize and WebSocket to become available.
+
+**If OBS WebSocket fails after start:**
+> **⚠️ OBS WebSocket not connected.**
+> To enable (one-time setup):
+> 1. Open OBS Studio
+> 2. Go to Tools → WebSocket Server Settings
+> 3. Enable WebSocket server
+> 4. Note the port (default: 4455) and password (if set)
+> 5. Update `~/.claude.json` with password if required
+>
+> Falling back to ScreenPipe for screen recording.
+
+Set `recording_method = "screenpipe"` if OBS unavailable, otherwise `recording_method = "obs"`.
+
+#### Step 1b: Pre-Flight Check - ScreenPipe (Fallback + OCR)
+
+ScreenPipe is always needed for OCR capture, and serves as fallback for recording.
 
 **Check if running:**
 ```bash
@@ -62,9 +121,9 @@ Wait 5 seconds, then re-check health endpoint. If still not running after 3 atte
 > Manual fix: Open a terminal and run `screenpipe`
 > Then retry `/dev-org:user-test start [url]`
 
-#### Step 2: Pre-Flight Check - OBS + LocalVocal
+#### Step 2: Pre-Flight Check - OBS + LocalVocal (Audio Transcription)
 
-**Check if OBS is running:**
+**Check if OBS is running** (may already be running from Step 1):
 ```powershell
 Get-Process -Name "obs64" -ErrorAction SilentlyContinue
 ```
@@ -77,7 +136,7 @@ Start-Process -FilePath "C:\Program Files\obs-studio\bin\64bit\obs64.exe" -Argum
 Wait 3 seconds for OBS to initialize.
 
 **Check if LocalVocal is producing output:**
-Check for recent files in `logs/transcripts/`:
+Check for recent files in `{LOGS_PATH}`:
 ```powershell
 Get-ChildItem "{LOGS_PATH}" -ErrorAction SilentlyContinue | Where-Object { $_.LastWriteTime -gt (Get-Date).AddMinutes(-5) }
 ```
@@ -86,7 +145,7 @@ If no recent transcript files:
 > **⚠️ OBS is running but LocalVocal may not be active.**
 > Please verify in OBS:
 > 1. Audio source has LocalVocal filter enabled
-> 2. LocalVocal is outputting to `logs/transcripts/`
+> 2. LocalVocal is outputting to `{LOGS_PATH}`
 > 3. Speak a test phrase and check for file updates
 >
 > Continue anyway? (Audio capture may not work)
@@ -134,7 +193,8 @@ Display status before proceeding:
 >
 > | Component | Status |
 > |-----------|--------|
-> | ScreenPipe | ✅ Running |
+> | Screen Recording | ✅ OBS / ⚠️ ScreenPipe fallback |
+> | ScreenPipe OCR | ✅ Running |
 > | OBS + LocalVocal | ✅ Running / ⚠️ Check manually / ❌ Not available |
 > | Chrome DevTools MCP | ✅ Connected / ⚠️ Degraded mode |
 >
@@ -142,6 +202,19 @@ Display status before proceeding:
 
 #### Step 5: Record Start Time
 Note timestamp (ISO 8601) for later query.
+
+#### Step 5b: Start Screen Recording
+
+**If recording_method = "obs":**
+Use OBS MCP to start recording:
+```
+mcp__obs__start_record
+```
+
+Store the recording state for later.
+
+**If recording_method = "screenpipe":**
+ScreenPipe records continuously - no action needed. Will use `mcp__screenpipe__export-video` at stop time.
 
 #### Step 6: Open URL in Chrome
 
@@ -154,7 +227,7 @@ If degraded mode (no Chrome DevTools), instruct user:
 > Open Chrome and navigate to: [url]
 
 #### Step 7: Inject Coordinate Overlay
-Inject a floating tooltip that follows the cursor showing X,Y coordinates. This helps the user verbally reference positions on the page during testing.
+Inject a floating tooltip that follows the cursor showing X,Y coordinates. This helps {USER_NAME} verbally reference positions on the page during testing.
 
 Use `mcp__plugin_playwright_playwright__browser_evaluate` with this function:
 
@@ -214,7 +287,8 @@ Tell Chrome DevTools MCP to start capturing:
 > **Capturing:**
 > | Layer | Status |
 > |-------|--------|
-> | Screen (ScreenPipe OCR) | ✅ Active |
+> | Screen Recording | ✅ OBS / ⚠️ ScreenPipe |
+> | Screen OCR | ✅ Active (ScreenPipe) |
 > | Audio (OBS + LocalVocal) | ✅ Active / ⚠️ Verify manually |
 > | Console + Network | ✅ Active / ⚠️ Degraded mode |
 >
@@ -236,10 +310,32 @@ When `/dev-org:user-test stop`:
 #### Step 1: Record End Time
 Note timestamp, calculate duration.
 
+#### Step 1b: Stop Screen Recording
+
+**If recording_method = "obs":**
+Use OBS MCP to stop recording:
+```
+mcp__obs__stop_record
+```
+
+The recording file will be saved to OBS's configured output directory (typically `~/Videos`).
+Note the output file path for the bug report.
+
+**If recording_method = "screenpipe":**
+Export the recording for the session time range:
+```
+mcp__screenpipe__export-video with:
+  - start_time: session start (ISO 8601 UTC)
+  - end_time: session end (ISO 8601 UTC)
+  - fps: 5 (smooth playback)
+```
+
+Save the exported video path for the bug report.
+
 #### Step 2: Query Audio Transcripts
 
 **Primary: LocalVocal transcript file**
-1. Read the transcript file at `logs/transcripts/recording` (SRT format)
+1. Read the transcript file at `{LOGS_PATH}recording` (SRT format)
 2. Parse SRT format: each entry has index, timestamp range, and text
 3. Filter entries by session time window (compare SRT timestamps to session start/end)
 4. Search for bug keywords: "broken", "doesn't work", "error", "bug", "expected", "should", "wrong", "fail"
@@ -286,7 +382,7 @@ For each verbal issue:
 3. Identify root cause from technical data
 
 #### Step 5: Create Bug Tasks
-For each bug found, create file in `backlog/tasks/`:
+For each bug found, create file in `{BACKLOG_PATH}`:
 
 Filename: `bug-[short-description].md`
 
@@ -301,87 +397,40 @@ Content:
 - **Added:** [date]
 - **Updated:** [date]
 - **Session:** user-test-[start-timestamp]
-- **Test:** `tests/bugs/<slug>.test.ts`
 
-#### What the User Said
+#### What {USER_NAME} Said
 > "[Quote from audio transcription]"
 
 #### Technical Context
 - **Console:** [errors captured]
 - **Network:** [failed requests with status codes]
 - **Timestamp:** [UTC timestamp from response header]
-- **Video offset:** [seconds into recording, e.g., "1:25 into monitor_..._22-00-20.mp4"]
+- **Video:** [recording file path]
+- **Video offset:** [seconds into recording, e.g., "1:25"]
 
 #### Proposed Fix
 [Analysis of what went wrong and suggested code change]
-
-#### UAT Verification
-- [ ] [Step to reproduce the original bug - should now work]
-- [ ] [Expected correct behavior to verify]
-- [ ] [Any edge cases to check]
 ```
 
-#### Step 6: Create Bug Verification Tests
-
-For each bug task created, generate a test file that fails when the bug exists and passes when fixed.
-
-**Test location:** Follow the project's test conventions. Default paths:
-- `tests/bugs/<slug>.test.ts` for TypeScript projects
-- `tests/bugs/<slug>.test.js` for JavaScript projects
-- `tests/bugs/test_<slug>.py` for Python projects
-
-**Test template:**
-```typescript
-/**
- * Bug verification test: [Bug Title]
- * Task: backlog/tasks/bug-<slug>.md
- * Session: user-test-[start-timestamp]
- *
- * This test fails when the bug is present and passes when fixed.
- * Run with: [appropriate test command]
- */
-
-describe('[Bug Title]', () => {
-  it('should [expected correct behavior]', () => {
-    // Setup: recreate the conditions that trigger the bug
-    // Based on: [what the user said / technical context]
-
-    // Action: perform the operation that fails
-
-    // Assert: verify the expected (correct) behavior
-  });
-});
-```
-
-**Guidelines:**
-1. **Test the expected behavior** - The test should pass when the bug is fixed, fail when present
-2. **Include reproduction steps** - Document how to trigger the bug in test comments
-3. **Keep tests focused** - One test per bug, testing the specific failure
-4. **Reference the session** - Include user-test session ID for traceability
-
-If unable to create tests (no test framework, unclear reproduction):
-- Note in the task: "Manual verification required - [reason]"
-- Still create the UAT checklist in the task
-
-#### Step 7: Present Summary
+#### Step 6: Present Summary
 
 > **Test session complete**
 >
 > **Duration:** [X minutes]
+> **Recording:** [video file path]
 > **Bugs found:** [N]
 >
 > ## Bugs Created
 >
-> | Bug | Task | Test | UAT Steps |
-> |-----|------|------|-----------|
-> | [Bug Title] | `backlog/tasks/bug-xxx.md` | `tests/bugs/xxx.test.ts` | [N] steps |
-> | ... | ... | ... | ... |
+> 1. **[Bug Title]** → `backlog/tasks/bug-xxx.md`
+>    - Console: [error summary]
+>    - Proposed fix: [brief]
+>
+> 2. ...
 >
 > ## What's Next?
-> - Run tests to confirm bugs are detected: `[test command]`
-> - Fix bugs (I can help)
-> - Re-run tests to verify fixes pass
-> - Complete UAT checklist in each task
+> - Review bug tasks in backlog
+> - Start fixing (I can help)
 > - Run another test session
 
 ---
@@ -445,21 +494,35 @@ If unable to create tests (no test framework, unclear reproduction):
 
 ## Files Written
 
-- `backlog/tasks/bug-*.md` - One per bug found (includes UAT checklist)
-- `tests/bugs/*.test.ts` - Verification test per bug (fails when bug present, passes when fixed)
+- `backlog/tasks/bug-*.md` - One per bug found
 
 ## Integrations
 
 | Tool | Required | Purpose |
 |------|----------|---------|
-| OBS + LocalVocal | Recommended | Audio transcription to `logs/transcripts/` |
-| ScreenPipe | Yes | Screen capture (OCR) |
-| ScreenPipe MCP | Yes | Query screen recordings |
+| OBS MCP | Primary | Screen recording (high quality via WebSocket) |
+| OBS + LocalVocal | Recommended | Audio transcription to `{LOGS_PATH}` |
+| ScreenPipe | Fallback | Screen recording fallback + OCR capture |
+| ScreenPipe MCP | Yes | Query screen content and export fallback recordings |
 | Chrome DevTools MCP | Recommended | Console + network capture |
 | Chrome | Yes | Test browser |
 
-## OBS + LocalVocal Setup
+## OBS Setup
 
+### OBS WebSocket (for screen recording)
+1. OBS Studio 31.0+ (WebSocket server built-in)
+2. Enable WebSocket server: Tools → WebSocket Server Settings
+3. Note the port (default: 4455) and password
+4. If password is set, update `~/.claude.json`:
+   ```json
+   "obs": {
+     "env": {
+       "OBS_WEBSOCKET_PASSWORD": "your-password-here"
+     }
+   }
+   ```
+
+### OBS + LocalVocal (for audio transcription)
 1. OBS Studio 32.0+ with LocalVocal plugin installed
 2. Audio Input Capture source configured for microphone
 3. LocalVocal filter on the audio source with:
@@ -467,3 +530,7 @@ If unable to create tests (no test framework, unclear reproduction):
    - Output to file enabled
    - Output path: `{LOGS_PATH}recording`
 4. OBS must be running during test sessions
+
+### Recording Priority
+1. **OBS MCP** (primary) - High quality, configurable, includes audio
+2. **ScreenPipe** (fallback) - Lower quality, but always available

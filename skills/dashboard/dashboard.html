@@ -1,0 +1,2608 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>dev-org // backlog dashboard</title>
+<link rel="icon" href="data:,">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600;700&family=Source+Serif+4:ital,opsz,wght@0,8..60,300;0,8..60,400;0,8..60,600;1,8..60,400&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+  :root {
+    --bg-void: #080b10;
+    --bg-primary: #0d1117;
+    --bg-surface: #131920;
+    --bg-elevated: #1a222c;
+    --border: #222d3a;
+    --border-subtle: #1a2332;
+    --text-primary: #d4dce8;
+    --text-secondary: #6b7d93;
+    --text-dim: #3d4f63;
+
+    --status-progress: #58a6ff;
+    --status-blocked: #f85149;
+    --status-notstarted: #7a8da2;
+    --status-done: #3fb950;
+    --status-draft: #3d4f63;
+
+    --p1: #f85149;
+    --p2: #d29922;
+    --p3: #58a6ff;
+    --p4: #7a8da2;
+    --p5: #3d4f63;
+
+    --font-mono: 'JetBrains Mono', 'SF Mono', monospace;
+    --font-serif: 'Source Serif 4', Georgia, serif;
+
+    --glow-blue: 0 0 20px rgba(88,166,255,0.15);
+    --glow-red: 0 0 20px rgba(248,81,73,0.15);
+    --glow-green: 0 0 12px rgba(63,185,80,0.1);
+  }
+
+  html { font-size: 87.5%; /* 14px at default 16px base, preserves user font prefs */ }
+
+  body {
+    background: var(--bg-void);
+    color: var(--text-primary);
+    font-family: var(--font-mono);
+    min-height: 100vh;
+    position: relative;
+    overflow-x: hidden;
+  }
+
+  /* Scanline overlay */
+  body::after {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background: repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 2px,
+      rgba(0,0,0,0.03) 2px,
+      rgba(0,0,0,0.03) 4px
+    );
+    pointer-events: none;
+    z-index: 50;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+
+  /* ── HEADER ── */
+  .header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 20px 32px;
+    border-bottom: 1px solid var(--border-subtle);
+    background: linear-gradient(180deg, rgba(13,17,23,0.9) 0%, var(--bg-void) 100%);
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    backdrop-filter: blur(12px);
+  }
+
+  .header-left {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+  }
+
+  .logo-mark {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--status-progress);
+    box-shadow: 0 0 8px var(--status-progress), 0 0 20px rgba(88,166,255,0.3);
+    animation: pulse-glow 3s ease-in-out infinite;
+  }
+
+  @keyframes pulse-glow {
+    0%, 100% { opacity: 1; box-shadow: 0 0 8px var(--status-progress), 0 0 20px rgba(88,166,255,0.3); }
+    50% { opacity: 0.7; box-shadow: 0 0 4px var(--status-progress), 0 0 10px rgba(88,166,255,0.15); }
+  }
+
+  .header-title {
+    font-family: var(--font-serif);
+    font-size: 1.15rem;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+    color: var(--text-primary);
+  }
+
+  .header-title span {
+    color: var(--text-dim);
+    font-weight: 300;
+  }
+
+  .header-meta {
+    font-size: 0.72rem;
+    color: var(--text-dim);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+  }
+
+  .data-source {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 0.62rem;
+    letter-spacing: 0.06em;
+    padding: 2px 8px;
+    border-radius: 3px;
+    text-transform: uppercase;
+  }
+
+  .data-source.live {
+    background: rgba(63,185,80,0.1);
+    color: var(--status-done);
+    border: 1px solid rgba(63,185,80,0.2);
+  }
+
+  .data-source.embedded {
+    background: rgba(210,153,34,0.1);
+    color: var(--p2);
+    border: 1px solid rgba(210,153,34,0.2);
+  }
+
+  .data-source-dot {
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+  }
+
+  .data-source.live .data-source-dot {
+    background: var(--status-done);
+    box-shadow: 0 0 4px var(--status-done);
+  }
+
+  .data-source.embedded .data-source-dot {
+    background: var(--p2);
+  }
+
+  .refresh-btn {
+    background: none;
+    border: 1px solid var(--border);
+    color: var(--text-dim);
+    font-family: var(--font-mono);
+    font-size: 0.62rem;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    padding: 3px 10px;
+    border-radius: 3px;
+    cursor: pointer;
+    transition: color 0.15s ease, border-color 0.15s ease;
+  }
+
+  .refresh-btn:hover {
+    color: var(--text-secondary);
+    border-color: var(--text-dim);
+  }
+
+  .refresh-btn:active {
+    color: var(--status-progress);
+    border-color: var(--status-progress);
+  }
+
+  .refresh-btn.spinning {
+    color: var(--status-progress);
+    border-color: var(--status-progress);
+    pointer-events: none;
+  }
+
+  /* Loading state */
+  .loading-overlay {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 80px 32px;
+    text-align: center;
+    gap: 16px;
+  }
+
+  .loading-spinner {
+    width: 24px;
+    height: 24px;
+    border: 2px solid var(--border);
+    border-top-color: var(--status-progress);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+  }
+
+  @keyframes spin {
+    to { transform: rotate(360deg); }
+  }
+
+  .loading-text {
+    font-size: 0.78rem;
+    color: var(--text-dim);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+
+  .error-banner {
+    background: rgba(248,81,73,0.08);
+    border: 1px solid rgba(248,81,73,0.2);
+    color: var(--status-blocked);
+    font-size: 0.72rem;
+    padding: 10px 18px;
+    margin: 0 32px 16px;
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .error-banner-dismiss {
+    margin-left: auto;
+    background: none;
+    border: none;
+    color: var(--status-blocked);
+    cursor: pointer;
+    font-size: 0.9rem;
+    opacity: 0.6;
+  }
+
+  .error-banner-dismiss:hover { opacity: 1; }
+
+  /* ── TAB BAR ── */
+  .tab-bar {
+    display: flex;
+    gap: 0;
+    padding: 0 32px;
+    background: var(--bg-void);
+    border-bottom: 1px solid var(--border-subtle);
+  }
+
+  .tab {
+    padding: 14px 24px;
+    font-family: var(--font-mono);
+    font-size: 0.78rem;
+    font-weight: 400;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--text-dim);
+    cursor: pointer;
+    border: none;
+    background: none;
+    position: relative;
+    transition: color 0.25s ease;
+  }
+
+  .tab:hover { color: var(--text-secondary); }
+
+  .tab.active {
+    color: var(--text-primary);
+  }
+
+  .tab.active::after {
+    content: '';
+    position: absolute;
+    bottom: -1px;
+    left: 24px;
+    right: 24px;
+    height: 1px;
+    background: var(--status-progress);
+    box-shadow: 0 0 8px rgba(88,166,255,0.4);
+  }
+
+  .tab-label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .tab-letter {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 18px;
+    height: 18px;
+    border-radius: 3px;
+    border: 1px solid var(--border);
+    font-size: 0.65rem;
+    font-weight: 600;
+    opacity: 0.5;
+  }
+
+  .tab.active .tab-letter {
+    border-color: var(--status-progress);
+    color: var(--status-progress);
+    opacity: 1;
+  }
+
+  /* ── VIEW CONTAINERS ── */
+  .view { display: none; padding: 28px 32px; animation: fadeIn 0.3s ease; }
+  .view.active { display: block; }
+
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(4px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  /* ── SUMMARY CARDS ── */
+  .summary-row {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 12px;
+    margin-bottom: 28px;
+  }
+
+  .summary-card {
+    background: var(--bg-surface);
+    border: 1px solid var(--border-subtle);
+    border-radius: 6px;
+    padding: 16px 18px;
+    position: relative;
+    overflow: hidden;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  }
+
+  .summary-card:hover {
+    border-color: var(--border);
+  }
+
+  .summary-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 2px;
+  }
+
+  .summary-card[data-status="progress"]::before { background: var(--status-progress); box-shadow: var(--glow-blue); }
+  .summary-card[data-status="blocked"]::before { background: var(--status-blocked); box-shadow: var(--glow-red); }
+  .summary-card[data-status="notstarted"]::before { background: var(--status-notstarted); }
+  .summary-card[data-status="done"]::before { background: var(--status-done); box-shadow: var(--glow-green); }
+  .summary-card[data-status="draft"]::before { background: var(--status-draft); }
+
+  .summary-label {
+    font-size: 0.68rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--text-dim);
+    margin-bottom: 8px;
+  }
+
+  .summary-value {
+    font-size: 1.8rem;
+    font-weight: 300;
+    letter-spacing: -0.02em;
+    line-height: 1;
+  }
+
+  .summary-card[data-status="progress"] .summary-value { color: var(--status-progress); }
+  .summary-card[data-status="blocked"] .summary-value { color: var(--status-blocked); }
+  .summary-card[data-status="notstarted"] .summary-value { color: var(--status-notstarted); }
+  .summary-card[data-status="done"] .summary-value { color: var(--status-done); }
+  .summary-card[data-status="draft"] .summary-value { color: var(--status-draft); }
+
+  /* ── STATUS BADGE ── */
+  .badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 3px 8px;
+    border-radius: 3px;
+    font-size: 0.68rem;
+    font-weight: 500;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    white-space: nowrap;
+  }
+
+  .badge-dot {
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+
+  .badge-progress { background: rgba(88,166,255,0.1); color: var(--status-progress); }
+  .badge-progress .badge-dot { background: var(--status-progress); box-shadow: 0 0 4px var(--status-progress); }
+  .badge-blocked { background: rgba(248,81,73,0.1); color: var(--status-blocked); }
+  .badge-blocked .badge-dot { background: var(--status-blocked); box-shadow: 0 0 4px var(--status-blocked); }
+  .badge-notstarted { background: rgba(122,141,162,0.1); color: var(--status-notstarted); }
+  .badge-notstarted .badge-dot { background: var(--status-notstarted); }
+  .badge-done { background: rgba(63,185,80,0.1); color: var(--status-done); }
+  .badge-done .badge-dot { background: var(--status-done); }
+  .badge-draft { background: rgba(61,79,99,0.1); color: var(--status-draft); }
+  .badge-draft .badge-dot { background: var(--status-draft); }
+
+  /* Priority badges */
+  .badge-p1 { background: rgba(248,81,73,0.12); color: var(--p1); border: 1px solid rgba(248,81,73,0.2); }
+  .badge-p2 { background: rgba(210,153,34,0.12); color: var(--p2); border: 1px solid rgba(210,153,34,0.2); }
+  .badge-p3 { background: rgba(88,166,255,0.1); color: var(--p3); border: 1px solid rgba(88,166,255,0.15); }
+  .badge-p4 { background: rgba(122,141,162,0.08); color: var(--p4); border: 1px solid rgba(122,141,162,0.12); }
+  .badge-p5 { background: rgba(61,79,99,0.08); color: var(--p5); border: 1px solid rgba(61,79,99,0.15); }
+
+  .project-tag {
+    font-size: 0.65rem;
+    color: var(--text-dim);
+    letter-spacing: 0.04em;
+  }
+
+  /* ══════════════════════════════════
+     KANBAN BOARD
+  ══════════════════════════════════ */
+  .kanban-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 16px;
+    margin-bottom: 24px;
+  }
+
+  .kanban-column {
+    min-height: 200px;
+  }
+
+  .kanban-column-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 0;
+    margin-bottom: 10px;
+    border-bottom: 2px solid var(--border-subtle);
+  }
+
+  .kanban-column[data-status="progress"] .kanban-column-header { border-bottom-color: var(--status-progress); }
+  .kanban-column[data-status="blocked"] .kanban-column-header { border-bottom-color: var(--status-blocked); }
+  .kanban-column[data-status="notstarted"] .kanban-column-header { border-bottom-color: var(--status-notstarted); }
+  .kanban-column[data-status="done"] .kanban-column-header { border-bottom-color: var(--status-done); }
+
+  .kanban-column-title {
+    font-size: 0.72rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--text-secondary);
+    font-weight: 500;
+  }
+
+  .kanban-column-count {
+    font-size: 0.72rem;
+    color: var(--text-dim);
+  }
+
+  .kanban-card {
+    background: var(--bg-surface);
+    border: 1px solid var(--border-subtle);
+    border-radius: 5px;
+    padding: 14px;
+    margin-bottom: 8px;
+    transition: border-color 0.15s ease, transform 0.15s ease, box-shadow 0.15s ease;
+    cursor: pointer;
+  }
+
+  .kanban-card:hover {
+    border-color: var(--border);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+  }
+
+  .kanban-card.expanded {
+    border-color: var(--border);
+    background: var(--bg-elevated);
+    transform: none;
+  }
+
+  .kanban-card-title {
+    font-size: 0.8rem;
+    font-weight: 400;
+    color: var(--text-primary);
+    margin-bottom: 10px;
+    line-height: 1.4;
+  }
+
+  .kanban-card-meta {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+
+  .kanban-card-date {
+    font-size: 0.62rem;
+    color: var(--text-dim);
+    letter-spacing: 0.02em;
+  }
+
+  /* Expandable detail panel inside cards */
+  .card-details {
+    display: none;
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px solid var(--border-subtle);
+    font-size: 0.72rem;
+    line-height: 1.6;
+    color: var(--text-secondary);
+  }
+
+  .kanban-card.expanded .card-details,
+  .draft-card.expanded .card-details {
+    display: block;
+    animation: fadeIn 0.2s ease;
+  }
+
+  .card-details dt {
+    color: var(--text-dim);
+    font-size: 0.65rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    margin-top: 8px;
+    margin-bottom: 2px;
+  }
+
+  .card-details dt:first-child {
+    margin-top: 0;
+  }
+
+  .card-details dd {
+    color: var(--text-secondary);
+    margin-bottom: 4px;
+    word-break: break-word;
+  }
+
+  .card-details ul, .row-details ul {
+    list-style: none;
+    padding: 0;
+  }
+
+  .card-details ul li, .row-details ul li {
+    padding-left: 12px;
+    position: relative;
+    margin-bottom: 2px;
+  }
+
+  .card-details ul li::before, .row-details ul li::before {
+    content: '\203A';
+    position: absolute;
+    left: 0;
+    color: var(--text-dim);
+  }
+
+  /* Draft section */
+  .draft-section {
+    border-top: 1px solid var(--border-subtle);
+    padding-top: 16px;
+  }
+
+  .draft-toggle {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.72rem;
+    color: var(--text-dim);
+    cursor: pointer;
+    padding: 8px 0;
+    border: none;
+    background: none;
+    font-family: var(--font-mono);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    transition: color 0.15s ease;
+  }
+
+  .draft-toggle:hover { color: var(--text-secondary); }
+
+  .draft-toggle-arrow {
+    transition: transform 0.2s ease;
+    font-size: 0.6rem;
+  }
+
+  .draft-toggle.open .draft-toggle-arrow { transform: rotate(90deg); }
+
+  .draft-cards {
+    display: none;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 16px;
+    margin-top: 12px;
+  }
+
+  .draft-cards.open { display: grid; }
+
+  .draft-card {
+    background: var(--bg-surface);
+    border: 1px solid var(--border-subtle);
+    border-radius: 5px;
+    padding: 12px;
+    opacity: 0.5;
+    transition: opacity 0.15s ease;
+    cursor: pointer;
+  }
+
+  .draft-card:hover { opacity: 0.75; }
+
+  .draft-card.expanded {
+    opacity: 0.85;
+    background: var(--bg-elevated);
+  }
+
+  .draft-card-title {
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+    margin-bottom: 6px;
+  }
+
+  /* ══════════════════════════════════
+     COMMAND CENTER
+  ══════════════════════════════════ */
+  .command-bar-section {
+    margin-bottom: 24px;
+  }
+
+  .status-bar-chart {
+    display: flex;
+    height: 32px;
+    border-radius: 4px;
+    overflow: hidden;
+    gap: 2px;
+  }
+
+  .status-bar-segment {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.65rem;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    color: rgba(255,255,255,0.85);
+    transition: flex 0.4s ease;
+    position: relative;
+  }
+
+  .status-bar-segment[data-status="progress"] { background: var(--status-progress); }
+  .status-bar-segment[data-status="blocked"] { background: var(--status-blocked); }
+  .status-bar-segment[data-status="notstarted"] { background: var(--status-notstarted); }
+  .status-bar-segment[data-status="done"] { background: var(--status-done); }
+  .status-bar-segment[data-status="draft"] { background: var(--status-draft); }
+
+  .bar-label {
+    font-size: 0.62rem;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    text-align: center;
+  }
+
+  .command-layout {
+    display: grid;
+    grid-template-columns: 1fr 320px;
+    gap: 20px;
+  }
+
+  .task-list-panel {
+    background: var(--bg-surface);
+    border: 1px solid var(--border-subtle);
+    border-radius: 6px;
+    overflow: hidden;
+  }
+
+  .task-list-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 18px;
+    border-bottom: 1px solid var(--border-subtle);
+    background: var(--bg-elevated);
+  }
+
+  .task-list-title {
+    font-size: 0.72rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--text-secondary);
+    font-weight: 500;
+  }
+
+  .task-list-count {
+    font-size: 0.68rem;
+    color: var(--text-dim);
+  }
+
+  .task-list-item {
+    display: grid;
+    grid-template-columns: 42px 1fr auto auto auto;
+    align-items: center;
+    gap: 12px;
+    padding: 11px 18px;
+    border-bottom: 1px solid var(--border-subtle);
+    transition: background 0.1s ease;
+    cursor: pointer;
+  }
+
+  .task-list-item:last-child { border-bottom: none; }
+  .task-list-item:hover { background: rgba(255,255,255,0.015); }
+  .task-list-item.expanded { background: var(--bg-elevated); }
+
+  .task-list-item.is-done {
+    opacity: 0.45;
+  }
+
+  .task-list-priority {
+    font-size: 0.7rem;
+    font-weight: 600;
+    text-align: center;
+  }
+
+  .task-list-name {
+    font-size: 0.8rem;
+    color: var(--text-primary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .task-list-date {
+    font-size: 0.62rem;
+    color: var(--text-dim);
+    white-space: nowrap;
+  }
+
+  /* Expanded row detail */
+  .row-details {
+    display: none;
+    grid-column: 1 / -1;
+    padding: 12px 0 4px 42px;
+    font-size: 0.72rem;
+    line-height: 1.6;
+    color: var(--text-secondary);
+  }
+
+  .task-list-item.expanded .row-details {
+    display: block;
+    animation: fadeIn 0.2s ease;
+  }
+
+  .row-details dt {
+    color: var(--text-dim);
+    font-size: 0.65rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    margin-top: 8px;
+    margin-bottom: 2px;
+  }
+
+  .row-details dt:first-child {
+    margin-top: 0;
+  }
+
+  .row-details dd {
+    color: var(--text-secondary);
+    margin-bottom: 4px;
+    word-break: break-word;
+  }
+
+  /* Stats panel */
+  .stats-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  .stat-block {
+    background: var(--bg-surface);
+    border: 1px solid var(--border-subtle);
+    border-radius: 6px;
+    padding: 18px;
+  }
+
+  .stat-block-title {
+    font-size: 0.68rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--text-dim);
+    margin-bottom: 14px;
+  }
+
+  .h-bar-chart {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .h-bar-row {
+    display: grid;
+    grid-template-columns: 24px 1fr 24px;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .h-bar-label {
+    font-size: 0.7rem;
+    font-weight: 600;
+    text-align: center;
+  }
+
+  .h-bar-track {
+    height: 16px;
+    background: var(--bg-void);
+    border-radius: 2px;
+    overflow: hidden;
+  }
+
+  .h-bar-fill {
+    height: 100%;
+    border-radius: 2px;
+    transition: width 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  .h-bar-value {
+    font-size: 0.68rem;
+    color: var(--text-secondary);
+    text-align: right;
+  }
+
+  .project-breakdown {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .project-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .project-name {
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+    font-weight: 400;
+  }
+
+  .project-count {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .project-count-num {
+    font-size: 0.82rem;
+    font-weight: 500;
+    color: var(--text-primary);
+  }
+
+  .project-bar-mini {
+    width: 60px;
+    height: 4px;
+    background: var(--bg-void);
+    border-radius: 2px;
+    overflow: hidden;
+  }
+
+  .project-bar-mini-fill {
+    height: 100%;
+    background: var(--status-progress);
+    border-radius: 2px;
+    opacity: 0.6;
+  }
+
+  .aging-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .aging-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-size: 0.72rem;
+  }
+
+  .aging-task {
+    color: var(--text-secondary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 180px;
+  }
+
+  .aging-days {
+    color: var(--text-dim);
+    font-weight: 500;
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+
+  .aging-days.warn { color: var(--p2); }
+  .aging-days.critical { color: var(--p1); }
+
+  /* ══════════════════════════════════
+     FILTER BAR
+  ══════════════════════════════════ */
+  .filter-bar {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 32px;
+    background: var(--bg-void);
+    border-bottom: 1px solid var(--border-subtle);
+  }
+
+  .filter-search {
+    flex: 1;
+    max-width: 320px;
+    position: relative;
+  }
+
+  .filter-search-icon {
+    position: absolute;
+    left: 10px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--text-dim);
+    font-size: 0.72rem;
+    pointer-events: none;
+  }
+
+  .filter-search input {
+    width: 100%;
+    background: var(--bg-surface);
+    border: 1px solid var(--border-subtle);
+    border-radius: 4px;
+    padding: 7px 10px 7px 28px;
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    color: var(--text-primary);
+    outline: none;
+    transition: border-color 0.15s ease;
+  }
+
+  .filter-search input::placeholder {
+    color: var(--text-dim);
+    font-size: 0.7rem;
+  }
+
+  .filter-search input:focus {
+    border-color: var(--status-progress);
+    box-shadow: 0 0 0 1px rgba(88,166,255,0.15);
+  }
+
+  .filter-select {
+    background: var(--bg-surface);
+    border: 1px solid var(--border-subtle);
+    border-radius: 4px;
+    padding: 7px 10px;
+    font-family: var(--font-mono);
+    font-size: 0.7rem;
+    color: var(--text-secondary);
+    outline: none;
+    cursor: pointer;
+    transition: border-color 0.15s ease;
+    appearance: none;
+    -webkit-appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%233d4f63'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 8px center;
+    padding-right: 24px;
+  }
+
+  .filter-select:focus {
+    border-color: var(--status-progress);
+  }
+
+  .filter-select.active {
+    border-color: var(--status-progress);
+    color: var(--text-primary);
+  }
+
+  .filter-bar-meta {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-left: auto;
+  }
+
+  .filter-count {
+    font-size: 0.68rem;
+    color: var(--text-dim);
+    letter-spacing: 0.04em;
+  }
+
+  .filter-count strong {
+    color: var(--text-secondary);
+    font-weight: 500;
+  }
+
+  .filter-clear {
+    background: none;
+    border: 1px solid var(--border-subtle);
+    color: var(--text-dim);
+    font-family: var(--font-mono);
+    font-size: 0.62rem;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    padding: 4px 10px;
+    border-radius: 3px;
+    cursor: pointer;
+    transition: color 0.15s ease, border-color 0.15s ease;
+    display: none;
+  }
+
+  .filter-clear:hover {
+    color: var(--text-secondary);
+    border-color: var(--text-dim);
+  }
+
+  .filter-clear.visible {
+    display: inline-flex;
+  }
+
+  .filter-shortcut-hint {
+    font-size: 0.6rem;
+    color: var(--text-dim);
+    letter-spacing: 0.04em;
+    opacity: 0.6;
+  }
+
+  .filter-shortcut-hint kbd {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 16px;
+    height: 16px;
+    padding: 0 4px;
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    font-family: var(--font-mono);
+    font-size: 0.58rem;
+    font-weight: 600;
+  }
+
+  /* No results state */
+  .no-results {
+    padding: 48px 32px;
+    text-align: center;
+    color: var(--text-dim);
+  }
+
+  .no-results-icon {
+    font-size: 1.5rem;
+    margin-bottom: 12px;
+    opacity: 0.4;
+  }
+
+  .no-results-text {
+    font-size: 0.78rem;
+    letter-spacing: 0.04em;
+    margin-bottom: 4px;
+  }
+
+  .no-results-sub {
+    font-size: 0.68rem;
+    letter-spacing: 0.02em;
+  }
+</style>
+</head>
+<body>
+
+<header class="header">
+  <div class="header-left">
+    <div class="logo-mark"></div>
+    <h1 class="header-title">dev-org <span>// backlog</span></h1>
+  </div>
+  <div class="header-meta">
+    <span id="header-meta-text"></span>
+    <span id="data-source-badge"></span>
+    <button class="refresh-btn" id="refresh-btn" onclick="refreshData()" title="Reload backlog data (R)">Refresh</button>
+  </div>
+</header>
+
+<nav class="tab-bar">
+  <button class="tab active" data-view="kanban" onclick="switchView('kanban')">
+    <span class="tab-label"><span class="tab-letter">B</span> Kanban Board</span>
+  </button>
+  <button class="tab" data-view="command" onclick="switchView('command')">
+    <span class="tab-label"><span class="tab-letter">C</span> Command Center</span>
+  </button>
+</nav>
+
+<div class="filter-bar" id="filter-bar">
+  <div class="filter-search">
+    <span class="filter-search-icon">&#x2315;</span>
+    <input type="text" id="filter-text" placeholder="Search tasks..." aria-label="Search tasks" autocomplete="off">
+  </div>
+  <select class="filter-select" id="filter-status" aria-label="Filter by status">
+    <option value="">All statuses</option>
+    <option value="progress">In Progress</option>
+    <option value="blocked">Blocked</option>
+    <option value="notstarted">Not Started</option>
+    <option value="done">Done</option>
+    <option value="draft">Draft</option>
+  </select>
+  <select class="filter-select" id="filter-priority" aria-label="Filter by priority">
+    <option value="">All priorities</option>
+    <option value="1">P1 — Critical</option>
+    <option value="2">P2 — High</option>
+    <option value="3">P3 — Medium</option>
+    <option value="4">P4 — Low</option>
+    <option value="5">P5 — Minimal</option>
+  </select>
+  <select class="filter-select" id="filter-project" aria-label="Filter by project">
+    <option value="">All projects</option>
+  </select>
+  <div class="filter-bar-meta">
+    <span class="filter-count" id="filter-count"></span>
+    <button class="filter-clear" id="filter-clear" onclick="clearFilters()">Clear</button>
+    <span class="filter-shortcut-hint"><kbd>/</kbd> search</span>
+  </div>
+</div>
+
+<div id="error-container" aria-live="polite"></div>
+<main>
+<div class="view active" id="view-kanban">
+  <div class="loading-overlay" id="loading-indicator">
+    <div class="loading-spinner"></div>
+    <div class="loading-text">Loading backlog data...</div>
+  </div>
+</div>
+<div class="view" id="view-command"></div>
+</main>
+
+<script>
+// ════════════════════════════════════════════
+//  DATA LOADING
+// ════════════════════════════════════════════
+const TASKS_API = '/api/tasks';
+const TASKS_DIR = 'backlog/tasks/';
+let tasks = [];
+let dataSource = 'none'; // 'live' | 'embedded' | 'none'
+
+// Embedded fallback — pre-parsed task objects for offline/non-server use
+const FALLBACK_TASKS = [
+  {
+    "title": "Audit current Claude Code workflow and skills",
+    "project": "dev-org",
+    "status": "notstarted",
+    "priority": 2,
+    "plannedCompletion": null,
+    "actualCompletion": null,
+    "blockers": null,
+    "notes": "Evaluate which Claude Code workflows and skills (Superpowers, GSD, REPL Loop, auto-compaction, testing processes) are actively being used, which provide real value, and which are unused. This is the discovery/evaluation step that feeds into \"Flesh out workflows.md\" and \"Create skills for workflow elements.\" Originally captured as an unchecked item in brainstorming.md.",
+    "spec": null,
+    "added": "2026-01-28",
+    "updated": "2026-01-28",
+    "nextSteps": [
+      "Inventory all Claude Code skills and workflows currently available",
+      "Assess which are actively used vs. dormant",
+      "Evaluate value provided by each active workflow",
+      "Feed findings into workflows.md documentation and skill creation tasks"
+    ]
+  },
+  {
+    "title": "Audit reference layer for pre-distinction content misplacement",
+    "project": "dev-org",
+    "status": "notstarted",
+    "priority": 2,
+    "plannedCompletion": null,
+    "actualCompletion": null,
+    "blockers": null,
+    "notes": "Early reference layer content was written before establishing clear definitions — memories should be personal to Eli (decisions, commitments, key facts about his life/work), while lessons should be learnings from experience (not public factoids anyone could look up). Preferences should capture how Eli likes to work, not restate general best practices. Content created before these boundaries were defined likely has misplaced entries: public knowledge sitting in memories, generic best practices in preferences, factoids in lessons. Needs a retroactive audit to reclassify or remove misplaced content. Related to \"Gracefully handle overlap between memories, learnings, preferences\" which defines the forward-looking strategy — this task applies that strategy retroactively.",
+    "spec": null,
+    "added": "2026-01-28",
+    "updated": "2026-01-28",
+    "nextSteps": [
+      "Read all entries in memories.md, lessons.md, and preferences.md",
+      "Flag entries that are public factoids rather than personal memories",
+      "Flag lessons that are generic knowledge rather than experience-derived learnings",
+      "Flag preferences that restate general best practices rather than Eli-specific preferences",
+      "Reclassify, merge, or remove flagged entries (with Eli's approval)"
+    ]
+  },
+  {
+    "title": "Automated model switcher with visibility",
+    "project": "dev-org",
+    "status": "notstarted",
+    "priority": 2,
+    "plannedCompletion": null,
+    "actualCompletion": null,
+    "blockers": null,
+    "notes": "More intelligently select the right Anthropic model (Opus, Sonnet, Haiku) for given scenarios instead of defaulting to one model for everything. Pair with better visibility into which model is actively being used for any given task. Could involve: rules-based routing (e.g., Haiku for simple searches, Opus for architecture decisions), cost/quality tradeoff awareness, and a visible indicator in the UI or output showing the active model. Related to context window optimization — lighter models preserve budget for complex work.",
+    "spec": null,
+    "added": "2026-01-28",
+    "updated": "2026-01-28",
+    "nextSteps": [
+      "Audit current model usage patterns — when is Opus overkill vs. necessary?",
+      "Research Claude Code model selection APIs and configuration options",
+      "Define routing rules (task type → model mapping)",
+      "Design visibility mechanism (status line, output prefix, etc.)",
+      "Implement and test automated switching logic"
+    ]
+  },
+  {
+    "title": "Backlog health alerts",
+    "project": "dev-org",
+    "status": "notstarted",
+    "priority": 4,
+    "plannedCompletion": null,
+    "actualCompletion": null,
+    "blockers": null,
+    "notes": "Proactive notifications when backlog needs attention: queue drops below threshold, high-priority tasks aging without progress, no new tasks added in X days, blocked items not being addressed.",
+    "spec": null,
+    "added": "2026-01-27",
+    "updated": "2026-01-27",
+    "nextSteps": [
+      "Define alert triggers and thresholds",
+      "Decide notification channel (part of mobile interface?)",
+      "Implement monitoring logic"
+    ]
+  },
+  {
+    "title": "Backlog triage/prioritization skill",
+    "project": "dev-org",
+    "status": "notstarted",
+    "priority": 5,
+    "plannedCompletion": null,
+    "actualCompletion": null,
+    "blockers": null,
+    "notes": "Create a `/dev-org:triage` skill for full backlog prioritization passes. Would audit for missing items, resolve priority conflicts, re-rank, and present changes for approval. Currently done manually — codify if it becomes a recurring need.",
+    "spec": null,
+    "added": "2026-01-28",
+    "updated": "2026-01-28",
+    "nextSteps": [
+      "Validate manual triage process through repeated use",
+      "Identify repeatable patterns worth codifying",
+      "Design skill structure and implement"
+    ]
+  },
+  {
+    "title": "Backlog visualization dashboard",
+    "project": "dev-org",
+    "status": "done",
+    "priority": 1,
+    "plannedCompletion": null,
+    "actualCompletion": "2026-01-28",
+    "blockers": null,
+    "notes": "Web-based dashboard to visualize the dev-org backlog. Phase 1: self-contained HTML file (`dashboard.html`) with embedded backlog data, regex parser, two views (Kanban Board + Command Center), expandable card/row details, keyboard shortcuts (B/C), draft section toggle, dark mission-control aesthetic. Phase 2: live file loading via `fetch()` with embedded fallback, loading spinner, Live/Snapshot data source badge, Refresh button (R shortcut), error banner, parser hardened against backlog preamble, minimal Node.js dev server (`serve.js`). Phase 3: filtering and search — text search across title/notes/project/blockers, status and priority dropdown filters, filter count badge, Clear button, `/` keyboard shortcut to focus search, Escape to clear, empty state. Filters apply to both views simultaneously. Future: VS Code WebView integration, auto-refresh/file watching.",
+    "spec": null,
+    "added": "2026-01-28",
+    "updated": "2026-01-28",
+    "nextSteps": [
+      "Design brainstorming with interactive mockups (3 layout options)",
+      "Design review: selected Kanban Board + Command Center, dropped Priority Matrix",
+      "Built backlog.md regex parser extracting all task fields",
+      "Built Kanban Board view with 4 columns, summary cards, collapsible draft section",
+      "Built Command Center view with status bar, priority-sorted task list, stats panel (priority distribution, projects, aging)",
+      "Added expandable inline details (notes, blockers, next steps, dates) on click",
+      "Added keyboard shortcuts (B/C for tab switching)",
+      "Code review + accessibility fixes (ARIA attributes, keyboard navigation, reduced-motion, semantic HTML)",
+      "Phase 2: Live file loading via fetch() with embedded fallback, loading state, data source badge, refresh button, parser preamble-stripping",
+      "Created serve.js dev server for local HTTP serving",
+      "Phase 2 code review + fixes (concurrent refresh guard, URI error handling, aria-live)",
+      "Phase 3: Filter bar with text search, status dropdown, priority dropdown",
+      "Filter state management with simultaneous apply to both Kanban and Command Center views",
+      "Keyboard shortcuts: `/` to focus search, Escape to clear filters",
+      "Filter count badge, Clear button, empty state for zero results"
+    ]
+  },
+  {
+    "title": "Codify personal \"why\"",
+    "project": "dev-org",
+    "status": "done",
+    "priority": 2,
+    "plannedCompletion": null,
+    "actualCompletion": "2026-01-28",
+    "blockers": null,
+    "notes": "why.md now contains \"The Deeper Why\" section with core life goal (SaaS product → own tech company), full career arc showing pattern of building/entrepreneurship, values from \"34 traits\" document, two-sides self-awareness from wedding vows, competition as identity, and dev-org's role as infrastructure for the entrepreneurial goal. Enriched through deep research of Google Drive, LinkedIn, social media, and local projects.",
+    "spec": null,
+    "added": "2026-01-28",
+    "updated": "2026-01-28",
+    "nextSteps": [
+      "Ran 4 parallel research sessions (Drive, LinkedIn, Social, Projects) to mine data about Eli",
+      "Merged findings into why.md with \"The Deeper Why\" section",
+      "Added career arc, values, vulnerability, competition identity, dev-org's role"
+    ]
+  },
+  {
+    "title": "Collect and scope project ideas from offline notes",
+    "project": "dev-org",
+    "status": "notstarted",
+    "priority": 1,
+    "plannedCompletion": null,
+    "actualCompletion": null,
+    "blockers": null,
+    "notes": "Eli has offline notes (physical, mental, scattered docs) about project ideas including eval-platform, multi-agent-startup, and potentially others. These need to be collected into a single place with enough context for Claude to scope each one — what the idea is, target market, competitive landscape, technical feasibility, and rough effort estimate. This feeds into the project prioritization system.",
+    "spec": null,
+    "added": "2026-01-28",
+    "updated": "2026-01-28",
+    "nextSteps": [
+      "Session with Eli to dump all project ideas and offline notes",
+      "For each idea: capture name, description, target user, problem it solves",
+      "Claude scopes each: competitive landscape, technical feasibility, effort estimate",
+      "Add scoped ideas as draft backlog items or update existing parking lot repos",
+      "Re-evaluate project priority ranking with new information"
+    ]
+  },
+  {
+    "title": "Context window optimization (\"Thin Orchestrator\" pattern)",
+    "project": "dev-org",
+    "status": "notstarted",
+    "priority": 2,
+    "plannedCompletion": null,
+    "actualCompletion": null,
+    "blockers": null,
+    "notes": "Keep main CC session focused on delegation, not implementation. Target <50% context utilization. Spawn sub-agents for implementation/verification. Add context budget monitoring and smart delegation patterns. Applies to all CC usage.",
+    "spec": "[context-window-optimization.md](specs/context-window-optimization.md)",
+    "added": "2026-01-28",
+    "updated": "2026-01-28",
+    "nextSteps": [
+      "Copy TC spec to dev-org specs folder",
+      "Adapt patterns for dev-org's simpler architecture",
+      "Document delegation best practices"
+    ]
+  },
+  {
+    "title": "Conversational deep-dive on personal \"why\"",
+    "project": "dev-org",
+    "status": "notstarted",
+    "priority": 3,
+    "plannedCompletion": null,
+    "actualCompletion": null,
+    "blockers": null,
+    "notes": "The research-based enrichment of why.md is complete (career arc, values, vulnerability, competition, dev-org's role), but the conversational piece — things only Eli can articulate — was never finished. The original brainstorming session identified the need to codify what keeps him disciplined, and the first deep-dive surfaced the two-layer structure (immediate: cognitive overload relief; ultimate: SaaS → own tech company). Still unexplored: what kind of SaaS / what domain, what skills and advantages he brings (his unfair edge), what \"running a small tech company\" looks like concretely (solo? team? bootstrapped? VC?), and what keeps him disciplined day-to-day. Research findings in research/ provide rich context to inform the conversation.",
+    "spec": null,
+    "added": "2026-01-28",
+    "updated": "2026-01-28",
+    "nextSteps": [
+      "Conversational session with Eli exploring SaaS direction, unfair advantages, company vision, and discipline mechanisms",
+      "Update why.md with Eli's articulated answers",
+      "Cross-reference with existing research findings for consistency"
+    ]
+  },
+  {
+    "title": "Create handoff skill for Claude Code sessions",
+    "project": "dev-org",
+    "status": "done",
+    "priority": 3,
+    "plannedCompletion": null,
+    "actualCompletion": "2026-01-27",
+    "blockers": null,
+    "notes": "Fifth skill for dev-org. Packages session context into handoff documents and starter prompts for continuation by fresh Claude Code sessions. Integrates with /dev-org:review to capture learnings first.",
+    "spec": null,
+    "added": "2026-01-27",
+    "updated": "2026-01-27",
+    "nextSteps": [
+      "Designed skill structure (docs/plans/2026-01-27-handoff-skill-design.md)",
+      "Created skills/handoff/SKILL.md with full instructions",
+      "Plugin discovery is automatic via skills/*/SKILL.md pattern"
+    ]
+  },
+  {
+    "title": "Create retrospective skill",
+    "project": "dev-org",
+    "status": "notstarted",
+    "priority": 2,
+    "plannedCompletion": null,
+    "actualCompletion": null,
+    "blockers": null,
+    "notes": "A `/dev-org:retro` skill invoked when something has gone wrong with Claude's behavior during a session. Uses the transcript as raw material to create a powerful teaching moment — extracts what went wrong, why it went wrong, what the correct behavior should have been, and encodes the learning into the reference layer (lessons.md, preferences.md, or a new anti-patterns file). The goal is to turn failure into durable improvement so the same mistake never recurs across sessions.",
+    "spec": null,
+    "added": "2026-01-28",
+    "updated": "2026-01-28",
+    "nextSteps": [
+      "Design the skill flow: how to identify the problematic behavior from transcript context",
+      "Define output format — lesson entry, anti-pattern, preference update, or all three",
+      "Decide where learnings are stored (lessons.md? new anti-patterns.md? preferences.md?)",
+      "Implement skills/retro/SKILL.md",
+      "Test with a real transcript where Claude's behavior was suboptimal"
+    ]
+  },
+  {
+    "title": "Create skills for workflow elements",
+    "project": "dev-org",
+    "status": "notstarted",
+    "priority": 2,
+    "plannedCompletion": null,
+    "actualCompletion": null,
+    "blockers": null,
+    "notes": "Turn documented workflows into executable Claude Code skills. These skills codify consistent processes that should be applied across sessions. Starting with code review and feature/product testing as highest-value workflows. Depends on \"Flesh out workflows.md documentation\" being complete first.",
+    "spec": null,
+    "added": "2026-01-28",
+    "updated": "2026-01-28",
+    "nextSteps": [
+      "**Code Review skill** - Create `/dev-org:code-review` that invokes deep code review with consistent criteria",
+      "**Feature Testing skill** - Create `/dev-org:test-feature` for structured product/feature testing workflow",
+      "Assess remaining workflows (REPL Loop, Auto-Compaction, GSD integration) for skill conversion",
+      "Update workflows.md to link to corresponding skills"
+    ]
+  },
+  {
+    "title": "Daily scheduled repo sync",
+    "project": "dev-org",
+    "status": "notstarted",
+    "priority": 2,
+    "plannedCompletion": null,
+    "actualCompletion": null,
+    "blockers": null,
+    "notes": "Daily automated run that reviews all project repos and updates backlog items based on actual repo state. Catches drift between what's been built and what the backlog claims. Propose-only model — generates a change report for Eli to review before any backlog modifications are applied.",
+    "spec": null,
+    "added": "2026-01-28",
+    "updated": "2026-01-28",
+    "nextSteps": [
+      "Write the starter prompt that Claude Code will execute during each sync run",
+      "Build the sync report template (per-repo section with findings + proposed backlog changes)",
+      "Create a `logs/` directory convention for sync reports",
+      "Write a Windows Task Scheduler setup script (PowerShell) to schedule the daily run",
+      "Do a manual test run across all repos to validate the approach",
+      "Schedule the daily run once manual test is clean"
+    ]
+  },
+  {
+    "title": "Dynamic Gemini review triggering",
+    "project": "dev-org",
+    "status": "notstarted",
+    "priority": 4,
+    "plannedCompletion": null,
+    "actualCompletion": null,
+    "blockers": "Depends on Gemini MCP being complete and validated",
+    "notes": "Auto-trigger Gemini reviews based on: security-sensitive paths, change size thresholds, risk scoring, pattern matching. Needs data from manual reviews first to calibrate triggers.",
+    "spec": null,
+    "added": "2026-01-28",
+    "updated": "2026-01-28",
+    "nextSteps": [
+      "Complete Gemini MCP and gather manual review data",
+      "Analyze which reviews found valid issues",
+      "Design trigger rules based on data",
+      "Implement automatic triggering"
+    ]
+  },
+  {
+    "title": "Fix review skill (infer, don't interrogate)",
+    "project": "dev-org",
+    "status": "notstarted",
+    "priority": 2,
+    "plannedCompletion": null,
+    "actualCompletion": null,
+    "blockers": null,
+    "notes": "The review skill currently asks too many open-ended questions sequentially, which creates friction in daily use. Should infer learnings from session context and propose entries, only asking targeted questions when genuinely ambiguous. See lessons.md for the original observation.",
+    "spec": null,
+    "added": "2026-01-28",
+    "updated": "2026-01-28",
+    "nextSteps": [
+      "Review current review skill implementation for question flow",
+      "Redesign to infer learnings from session context first",
+      "Only ask targeted questions when classification is ambiguous",
+      "Test revised skill in daily workflow"
+    ]
+  },
+  {
+    "title": "Flesh out workflows.md documentation",
+    "project": "dev-org",
+    "status": "notstarted",
+    "priority": 2,
+    "plannedCompletion": null,
+    "actualCompletion": null,
+    "blockers": null,
+    "notes": "workflows.md has stubs for REPL Loop, Auto-Compaction, and Testing Processes with no real content. These should be documented with enough detail to be useful reference material for Claude sessions.",
+    "spec": null,
+    "added": "2026-01-28",
+    "updated": "2026-01-28",
+    "nextSteps": [
+      "Document REPL Loop workflow with steps and when to use",
+      "Document Auto-Compaction patterns and triggers",
+      "Document Testing Processes workflow",
+      "Review for completeness against actual daily usage"
+    ]
+  },
+  {
+    "title": "Gemini Adversarial Code Review MCP Server",
+    "project": "dev-org",
+    "status": "blocked",
+    "priority": 3,
+    "plannedCompletion": null,
+    "actualCompletion": null,
+    "blockers": "Waiting for Google AI API quota reset (free tier daily limit)",
+    "notes": "Phase 1 complete - MCP server implemented at traffic-control/gemini-review-mcp/. Provides cross-model code review where Gemini reviews Claude's code with adversarial prompting to catch blind spots. Tiered merge blocking (critical/major/minor), 32 unit tests passing. Note: Code currently lives in traffic-control/gemini-review-mcp/. Since traffic-control is deprecated, code should be relocated when this task is unblocked.",
+    "spec": "[gemini-adversarial-code-review.md](specs/gemini-adversarial-code-review.md)",
+    "added": "2026-01-28",
+    "updated": "2026-01-28",
+    "nextSteps": [
+      "Test with real API calls once quota resets",
+      "Proceed to Phase 2: Adversarial prompting refinement",
+      "Phase 3: TrafficControl integration (or dev-org workflow integration)",
+      "Phase 4: Learning & optimization based on feedback"
+    ]
+  },
+  {
+    "title": "Get golf clip online",
+    "project": "personal",
+    "status": "notstarted",
+    "priority": 1,
+    "plannedCompletion": null,
+    "actualCompletion": null,
+    "blockers": null,
+    "notes": "Get the golf clip published/uploaded online ASAP.",
+    "spec": null,
+    "added": "2026-01-28",
+    "updated": "2026-01-28",
+    "nextSteps": [
+      "Identify the golf clip file and target platform",
+      "Upload and publish"
+    ]
+  },
+  {
+    "title": "Gracefully handle overlap between memories, learnings, preferences",
+    "project": "dev-org",
+    "status": "notstarted",
+    "priority": 2,
+    "plannedCompletion": null,
+    "actualCompletion": null,
+    "blockers": null,
+    "notes": "The reference layer files (memories.md, lessons.md, preferences.md) have natural overlap — e.g., a lesson learned could also be a preference, a memory could imply a lesson. Currently no guidance on where something belongs when it spans categories, leading to potential duplication or inconsistent placement. Need a strategy: could be deduplication rules, cross-references between files, a single unified file, or clear decision criteria for categorization. Should also address what happens when the review skill captures something that fits multiple categories.",
+    "spec": null,
+    "added": "2026-01-28",
+    "updated": "2026-01-28",
+    "nextSteps": [
+      "Audit current content across memories.md, lessons.md, and preferences.md for existing overlap",
+      "Define clear boundaries and decision criteria for each file's purpose",
+      "Design cross-reference or deduplication strategy",
+      "Update the review skill to apply the new categorization rules",
+      "Document the strategy in CLAUDE.md or a ways-of-working file"
+    ]
+  },
+  {
+    "title": "Handoff skill: Support cross-directory file references",
+    "project": "dev-org",
+    "status": "notstarted",
+    "priority": 3,
+    "plannedCompletion": null,
+    "actualCompletion": null,
+    "blockers": null,
+    "notes": "Enhance /dev-org:handoff skill to support referencing files from other directories/projects in starter prompts. Currently handoff documents assume context within the same directory. Cross-directory references would enable handoffs that span multiple repos or include relevant files from related projects.",
+    "spec": null,
+    "added": "2026-01-28",
+    "updated": "2026-01-28",
+    "nextSteps": [
+      "Review current handoff skill implementation for file reference handling",
+      "Design syntax for cross-directory references (absolute paths? project aliases?)",
+      "Implement path resolution and validation",
+      "Update starter prompt generation to include referenced files"
+    ]
+  },
+  {
+    "title": "Historical tracking and metrics",
+    "project": "dev-org",
+    "status": "notstarted",
+    "priority": 4,
+    "plannedCompletion": null,
+    "actualCompletion": null,
+    "blockers": null,
+    "notes": "Track progress over time - tasks added vs completed per day/week, average time in queue, throughput by project. Will need to decide on storage approach (append-only log file? separate metrics file?).",
+    "spec": null,
+    "added": "2026-01-27",
+    "updated": "2026-01-27",
+    "nextSteps": [
+      "Design data model for historical tracking",
+      "Decide storage approach that fits markdown-based system",
+      "Implement basic metrics collection"
+    ]
+  },
+  {
+    "title": "Hook: Auto-handoff at context window threshold",
+    "project": "dev-org",
+    "status": "done",
+    "priority": 1,
+    "plannedCompletion": null,
+    "actualCompletion": "2026-01-28",
+    "blockers": null,
+    "notes": "Claude Code hook that monitors context window usage after every Claude turn. When estimated usage crosses 60%, automatically triggers `/dev-org:handoff` to package the session for continuation. Uses Node.js script (`hooks/context-monitor.js`) with streaming JSONL transcript parsing, chars/4 token estimation heuristic, single-fire marker mechanism, and JSONL usage logging. Installed as Stop + PreCompact hooks in `~/.claude/settings.json`. 49 tests passing. Design doc: `docs/plans/2026-01-28-auto-handoff-hook-design.md`.",
+    "spec": null,
+    "added": "2026-01-27",
+    "updated": "2026-01-28",
+    "nextSteps": [
+      "Researched Claude Code hook events and capabilities (12 events, no built-in context % exposed)",
+      "Designed token estimation via transcript JSONL streaming with chars/4 heuristic",
+      "Built `hooks/context-monitor.js` — Stop hook triggers handoff at 60%, PreCompact hook logs compaction",
+      "Built `hooks/context-monitor.cmd` — polyglot wrapper (Windows + Unix), always exits 0",
+      "Created `hooks/config-reference.json` — documentation of settings.json hooks block",
+      "Installed hooks config into `~/.claude/settings.json`",
+      "Built test harness (49 tests): threshold, single-fire, PreCompact, schema, edge cases (missing files, malformed JSONL, empty stdin, boundary conditions)",
+      "Code reviewed: fixed streaming (readline vs full-file read), fd-based log writes, hookType validation, .cmd always-exit-0, discounted file-size fallback"
+    ]
+  },
+  {
+    "title": "Hook: Auto-orient at session start",
+    "project": "dev-org",
+    "status": "notstarted",
+    "priority": 3,
+    "plannedCompletion": null,
+    "actualCompletion": null,
+    "blockers": null,
+    "notes": "Use Claude Code hooks to automatically invoke /dev-org:orient when a new session starts. Natural companion to the existing \"auto-review at session end\" hook idea. Would ensure every session begins with context awareness and prioritization. Originally described in phase-4-handoff.md Phase 6 capabilities.",
+    "spec": null,
+    "added": "2026-01-28",
+    "updated": "2026-01-28",
+    "nextSteps": [
+      "Research Claude Code hook system for session-start events",
+      "Determine if session-start hook exists or alternative trigger needed",
+      "Implement and test hook configuration"
+    ]
+  },
+  {
+    "title": "Hook: Auto-run /dev-org:review at session end",
+    "project": "dev-org",
+    "status": "draft",
+    "priority": 2,
+    "plannedCompletion": null,
+    "actualCompletion": null,
+    "blockers": null,
+    "notes": "Use Claude Code hooks to automatically invoke /dev-org:review when a session ends. Ensures learnings, memories, and lessons are captured without relying on manual invocation. Need to research hook configuration and session-end event availability.",
+    "spec": null,
+    "added": "2026-01-27",
+    "updated": "2026-01-27",
+    "nextSteps": [
+      "Research Claude Code hook system and available events",
+      "Determine if session-end hook exists or if alternative trigger needed",
+      "Implement and test hook configuration"
+    ]
+  },
+  {
+    "title": "Implement remaining dev-org skills (orient, review)",
+    "project": "dev-org",
+    "status": "done",
+    "priority": 1,
+    "plannedCompletion": null,
+    "actualCompletion": "2026-01-27",
+    "blockers": null,
+    "notes": "Phase 3 complete - all four skills implemented with calendar integration",
+    "spec": null,
+    "added": "2026-01-27",
+    "updated": "2026-01-27",
+    "nextSteps": [
+      "Built /dev-org:orient skill with calendar integration",
+      "Built /dev-org:review skill for updating reference layer",
+      "Code reviewed both skills"
+    ]
+  },
+  {
+    "title": "Migrate Traffic Control features to dev-org backlog",
+    "project": "dev-org",
+    "status": "done",
+    "priority": 2,
+    "plannedCompletion": null,
+    "actualCompletion": "2026-01-28",
+    "blockers": null,
+    "notes": "Triaged features from deprecated traffic-control project. dev-org is TC v2 with simpler markdown-based architecture. Many TC features (search, bulk ops, dependency visualization) unnecessary since Claude handles them naturally.",
+    "spec": null,
+    "added": "2026-01-28",
+    "updated": "2026-01-28",
+    "nextSteps": [
+      "Updated backlog format (added Project field, numeric priorities 1-5, Spec field)",
+      "Created backlog/specs/ directory structure",
+      "Migrated items: Mobile interface (P1), Backlog health alerts (P3), Historical tracking (P3), Weekly digest (P4), Context window optimization (P2), Gemini Adversarial Code Review (P2), Offline Claude Code (P3), Multi-model experiments (P4), Dynamic Gemini triggering (P4)",
+      "Copied specs for context-window-optimization, gemini-adversarial-code-review, offline-claude-code",
+      "Skipped: Task filtering, bulk ops, dependency visualization (Claude handles naturally)"
+    ]
+  },
+  {
+    "title": "Mobile interface for dev-org",
+    "project": "dev-org",
+    "status": "done",
+    "priority": 1,
+    "plannedCompletion": null,
+    "actualCompletion": "2026-01-28",
+    "blockers": null,
+    "notes": "Mobile access to dev-org via Happy (https://happy.engineering/) — open-source Claude Code mobile client with E2E encryption. Happy CLI v0.13.0 installed globally, mobile app paired and tested. Skills work from phone. No custom quick-action layer needed — Happy provides full Claude Code access natively.",
+    "spec": null,
+    "added": "2026-01-27",
+    "updated": "2026-01-28",
+    "nextSteps": [
+      "Installed Happy CLI v0.13.0 (`npm i -g happy-coder`)",
+      "Paired mobile app with desktop via QR code",
+      "Tested dev-org skills from mobile — confirmed working",
+      "Evaluated quick-action layer — not needed, Happy provides full access"
+    ]
+  },
+  {
+    "title": "Multi-model collaboration experiments",
+    "project": "dev-org",
+    "status": "notstarted",
+    "priority": 4,
+    "plannedCompletion": null,
+    "actualCompletion": null,
+    "blockers": "Depends on Gemini MCP being complete",
+    "notes": "Long-term research on optimal multi-model collaboration patterns. Tests approaches like adversarial review, spec-build-verify, parallel implementation, iterative refinement, ensemble voting. Requires experimental framework and A/B testing infrastructure.",
+    "spec": null,
+    "added": "2026-01-28",
+    "updated": "2026-01-28",
+    "nextSteps": [
+      "Complete Gemini MCP as baseline",
+      "Build experiment tracking system",
+      "Collect baseline metrics on single-model Claude",
+      "Test multi-model approaches systematically"
+    ]
+  },
+  {
+    "title": "Offline Claude Code (Local AI Stack)",
+    "project": "dev-org",
+    "status": "draft",
+    "priority": 4,
+    "plannedCompletion": null,
+    "actualCompletion": null,
+    "blockers": null,
+    "notes": "Build offline Claude Code alternative on local hardware. Comprehensive research complete - open models now achieve 90-95% of Claude Sonnet quality. Primary model: Qwen3-Coder-30B. Hardware options from $3.5K (RTX 5090) to $15K (dual 5090). Provides unlimited usage, data privacy, offline capability.",
+    "spec": "[offline-claude-code.md](specs/offline-claude-code.md)",
+    "added": "2026-01-28",
+    "updated": "2026-01-28",
+    "nextSteps": [
+      "Decide on hardware budget and purchase",
+      "Phase 1: Foundation - basic local inference with OpenCode",
+      "Phase 2: Production inference optimization",
+      "Phase 3: RAG for codebase awareness",
+      "Phase 4: MCP integration"
+    ]
+  },
+  {
+    "title": "Phase 4: Daily use of dev-org system",
+    "project": "dev-org",
+    "status": "progress",
+    "priority": 1,
+    "plannedCompletion": "2026-02-10",
+    "actualCompletion": null,
+    "blockers": null,
+    "notes": "Validate the manual workflow before adding automation. Use the system daily for 1-2 weeks. Session 3 (2026-01-28): Installed Happy CLI for mobile access, researched current state of Happy ecosystem including Anthropic's Jan 2026 policy impact. Mobile pairing ready for manual testing.",
+    "spec": null,
+    "added": "2026-01-27",
+    "updated": "2026-01-28",
+    "nextSteps": [
+      "Test all four skills in daily workflow",
+      "Complete Happy mobile pairing and test skills from phone",
+      "Document friction points and learnings using /dev-org:review",
+      "Capture at least 3 entries in memories.md or lessons.md from using the system"
+    ]
+  },
+  {
+    "title": "Populate reference layer through deep research",
+    "project": "dev-org",
+    "status": "done",
+    "priority": 1,
+    "plannedCompletion": null,
+    "actualCompletion": "2026-01-28",
+    "blockers": null,
+    "notes": "Deep research to build comprehensive profile of Eli for the reference layer. Ran 4 parallel research sessions (Google Drive, LinkedIn/professional web, social media, local projects) writing findings to research/ directory (1,255 lines total). Merged all findings into 7 existing reference files and created 2 new ones (bio.md, skills.md). Reference layer now contains: full biographical facts, career timeline, education, family, interests, technical skills inventory, development patterns, tools/stack, and personal style/tendencies.",
+    "spec": null,
+    "added": "2026-01-28",
+    "updated": "2026-01-28",
+    "nextSteps": [
+      "Session 1: Google Drive deep dive (441 lines — career, education, family, interests, values)",
+      "Session 2: LinkedIn & professional web (273 lines — Microsoft career, CMC thesis, volunteer work)",
+      "Session 3: Social media (257 lines — low public footprint, GitHub profile, quiet builder persona)",
+      "Session 4: Local projects analysis (284 lines — 8 projects, tech stack, building patterns)",
+      "Eli-verified corrections (wedding July 2022, Ira born July 26 2025, FannoTek employee not co-founder)",
+      "Merged into: why.md, constraints.md, preferences.md, memories.md, tools.md, workflows.md",
+      "Created: bio.md (comprehensive biographical summary), skills.md (technical & professional inventory)"
+    ]
+  },
+  {
+    "title": "Prioritize coding projects",
+    "project": "dev-org",
+    "status": "done",
+    "priority": 1,
+    "plannedCompletion": null,
+    "actualCompletion": "2026-01-28",
+    "blockers": null,
+    "notes": "Inventoried all 11 projects in c:\\Users\\Eli\\projects\\. Assessed each for state, purpose, last activity, and alignment with core SaaS goal. Final priority ranking established with Eli's input.",
+    "spec": null,
+    "added": "2026-01-28",
+    "updated": "2026-01-28",
+    "nextSteps": []
+  },
+  {
+    "title": "Register dev-org skills as Claude Code slash commands",
+    "project": "dev-org",
+    "status": "done",
+    "priority": 1,
+    "plannedCompletion": null,
+    "actualCompletion": "2026-01-28",
+    "blockers": null,
+    "notes": "All 5 dev-org skills (orient, add, status, review, handoff) now appear as native slash commands in Claude Code. Solution: local marketplace registration via known_marketplaces.json with \"directory\" source type, plus installed_plugins.json and settings.json entries using \"dev-org@dev-org-local\" key format. Configuration survived VS Code restart.",
+    "spec": null,
+    "added": "2026-01-27",
+    "updated": "2026-01-28",
+    "nextSteps": [
+      "Created .claude-plugin/plugin.json manifest",
+      "Reorganized skills into subdirectories (skills/orient/SKILL.md, etc.)",
+      "Added YAML frontmatter to each skill file",
+      "Created commands/ directory with 5 routing files (orient, add, status, review, handoff)",
+      "Created .claude-plugin/marketplace.json (local marketplace definition)",
+      "Added dev-org-local marketplace to known_marketplaces.json with \"directory\" source type",
+      "Added dev-org@dev-org-local to installed_plugins.json",
+      "Updated settings.json key from \"dev-org\" to \"dev-org@dev-org-local\"",
+      "Verified slash commands appear after VS Code restart"
+    ]
+  },
+  {
+    "title": "Repo cleanup: archive stale files and collapse done items",
+    "project": "dev-org",
+    "status": "notstarted",
+    "priority": 4,
+    "plannedCompletion": null,
+    "actualCompletion": null,
+    "blockers": null,
+    "notes": "Housekeeping pass on the repo. Archive 6 stale root-level files (brainstorming.md, implementation-handoff.md, starter-prompt.md, phase-4-handoff.md, handoff-prompt.md, session-handoff.md) to docs/plans/ with -archived suffix. Collapse the 5 completed backlog tasks to reduce clutter. Check if TC migration cleanup tasks (rename portfolio dir, delete backup, update refs) were ever completed.",
+    "spec": null,
+    "added": "2026-01-28",
+    "updated": "2026-01-28",
+    "nextSteps": [
+      "Archive stale root-level files to docs/plans/ with -archived suffix",
+      "Collapse completed backlog items (summary line + completion date only)",
+      "Verify TC migration cleanup tasks status"
+    ]
+  },
+  {
+    "title": "Weekly digest",
+    "project": "dev-org",
+    "status": "draft",
+    "priority": 4,
+    "plannedCompletion": null,
+    "actualCompletion": null,
+    "blockers": null,
+    "notes": "Weekly summary of what happened - completed tasks, currently in progress, upcoming high-priority items, tasks that aged significantly. Could be delivered via mobile interface or as a scheduled skill run.",
+    "spec": null,
+    "added": "2026-01-28",
+    "updated": "2026-01-28",
+    "nextSteps": [
+      "Define digest content and format",
+      "Decide delivery mechanism (mobile push? email? scheduled CC session?)",
+      "Implement generation logic"
+    ]
+  },
+  {
+    "title": "Windows desktop widget for Claude usage monitoring",
+    "project": "dev-org",
+    "status": "notstarted",
+    "priority": 3,
+    "plannedCompletion": null,
+    "actualCompletion": null,
+    "blockers": null,
+    "notes": "Desktop widget to monitor session and weekly Claude API usage. Recommended approach: Rainmeter — free, open-source, native Windows desktop integration, Lua scripting for API calls/file parsing, low resource footprint. Alternatives considered: Windows 11 widget board (too complex for the payoff), Electron tray app (heavy, not a true desktop widget). Could poll the Anthropic API usage endpoint or read from a local cache file updated by a scheduled task.",
+    "spec": null,
+    "added": "2026-01-28",
+    "updated": "2026-01-28",
+    "nextSteps": [
+      "Research Anthropic API usage/billing endpoint availability and authentication",
+      "Design Rainmeter skin layout (session usage, weekly usage, remaining quota)",
+      "Implement Lua script to fetch and parse usage data",
+      "Style the widget to match Windows desktop aesthetic"
+    ]
+  }
+];
+
+// ════════════════════════════════════════════
+//  PARSER
+// ════════════════════════════════════════════
+function parseTaskFile(md) {
+  // Strip fenced code blocks
+  const cleanMd = md.replace(/```[\s\S]*?```/g, '');
+
+  const title = (cleanMd.match(/^### (.+)/m) || [])[1]?.trim() || 'Untitled';
+  const project = extractField(cleanMd, 'Project');
+  if (!project) return null; // Not a valid task file
+
+  return {
+    title,
+    project,
+    status: normalizeStatus(extractField(cleanMd, 'Status')),
+    priority: parseInt(extractField(cleanMd, 'Priority')) || 5,
+    plannedCompletion: cleanNone(extractField(cleanMd, 'Planned completion')),
+    actualCompletion: cleanNone(extractField(cleanMd, 'Actual completion')),
+    blockers: cleanNone(extractField(cleanMd, 'Blockers')),
+    notes: extractField(cleanMd, 'Notes'),
+    spec: cleanNone(extractField(cleanMd, 'Spec')),
+    added: extractField(cleanMd, 'Added'),
+    updated: extractField(cleanMd, 'Updated'),
+    nextSteps: extractNextSteps(cleanMd),
+  };
+}
+
+function extractField(text, fieldName) {
+  const regex = new RegExp('\\*\\*' + fieldName + ':\\*\\*\\s*(.+)', 'i');
+  const match = text.match(regex);
+  return match ? match[1].trim() : '';
+}
+
+function normalizeStatus(raw) {
+  const s = raw.toLowerCase().trim();
+  if (s === 'in progress') return 'progress';
+  if (s === 'not started') return 'notstarted';
+  if (s === 'blocked') return 'blocked';
+  if (s === 'done') return 'done';
+  if (s === 'draft') return 'draft';
+  return 'draft';
+}
+
+function cleanNone(val) {
+  if (!val || val.toLowerCase() === 'none' || val === '') return null;
+  return val;
+}
+
+function extractNextSteps(text) {
+  const steps = [];
+  const match = text.match(/####\s+(Next steps|Completed)\s*\n([\s\S]*?)(?=\n---|\n###|$)/i);
+  if (match) {
+    const block = match[2];
+    const lineRegex = /^\d+\.\s+(.+)/gm;
+    let m;
+    while ((m = lineRegex.exec(block)) !== null) {
+      steps.push(m[1].trim());
+    }
+  }
+  return steps;
+}
+
+// ════════════════════════════════════════════
+//  COMPUTED DATA
+// ════════════════════════════════════════════
+
+const statusLabels = {
+  progress: 'In Progress',
+  blocked: 'Blocked',
+  notstarted: 'Not Started',
+  done: 'Done',
+  draft: 'Draft',
+};
+
+const statusCommandLabels = {
+  progress: 'Active',
+  blocked: 'Blocked',
+  notstarted: 'Queued',
+  done: 'Done',
+  draft: 'Draft',
+};
+
+const priorityLabels = { 1: 'P1', 2: 'P2', 3: 'P3', 4: 'P4', 5: 'P5' };
+
+function countByStatus(status) {
+  return tasks.filter(t => t.status === status).length;
+}
+
+function countByPriority(p) {
+  return tasks.filter(t => t.priority === p).length;
+}
+
+function getProjects() {
+  const map = {};
+  tasks.forEach(t => {
+    const p = t.project || 'unknown';
+    map[p] = (map[p] || 0) + 1;
+  });
+  return Object.entries(map).sort((a, b) => b[1] - a[1]);
+}
+
+function getAgingTasks() {
+  const now = new Date();
+  return tasks
+    .filter(t => t.status !== 'done' && t.status !== 'draft' && t.added)
+    .map(t => {
+      const added = parseDate(t.added);
+      const days = added ? Math.floor((now - added) / (1000 * 60 * 60 * 24)) : 0;
+      return { title: t.title, status: t.status, ageDays: days };
+    })
+    .sort((a, b) => b.ageDays - a.ageDays)
+    .slice(0, 5);
+}
+
+function getDisplayDate(task) {
+  if (task.status === 'done' && task.actualCompletion) {
+    return formatDate(task.actualCompletion);
+  }
+  if (task.plannedCompletion) {
+    return formatDate(task.plannedCompletion);
+  }
+  return '';
+}
+
+function parseDate(dateStr) {
+  if (!dateStr) return null;
+  // Append T12:00:00 to avoid UTC midnight timezone shift
+  const d = new Date(dateStr + 'T12:00:00');
+  return isNaN(d) ? null : d;
+}
+
+function formatDate(dateStr) {
+  if (!dateStr) return '';
+  const d = parseDate(dateStr);
+  if (!d) return dateStr;
+  const months = ['jan','feb','mar','apr','may','jun','jul','aug','sep','oct','nov','dec'];
+  return months[d.getMonth()] + ' ' + d.getDate();
+}
+
+function escapeHtml(str) {
+  if (!str) return '';
+  return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+
+// ════════════════════════════════════════════
+//  RENDER: DETAIL PANELS
+// ════════════════════════════════════════════
+function renderDetails(task, cssClass) {
+  let html = '<div class="' + cssClass + '"><dl>';
+
+  if (task.notes) {
+    html += '<dt>Notes</dt><dd>' + escapeHtml(task.notes) + '</dd>';
+  }
+  if (task.blockers) {
+    html += '<dt>Blockers</dt><dd style="color:var(--status-blocked)">' + escapeHtml(task.blockers) + '</dd>';
+  }
+  if (task.spec) {
+    html += '<dt>Spec</dt><dd>' + escapeHtml(task.spec) + '</dd>';
+  }
+  if (task.nextSteps.length > 0) {
+    html += '<dt>' + (task.status === 'done' ? 'Completed' : 'Next Steps') + '</dt><dd><ul>';
+    task.nextSteps.forEach(function(s) {
+      html += '<li>' + escapeHtml(s) + '</li>';
+    });
+    html += '</ul></dd>';
+  }
+  if (task.plannedCompletion) {
+    html += '<dt>Planned</dt><dd>' + escapeHtml(task.plannedCompletion) + '</dd>';
+  }
+  if (task.actualCompletion) {
+    html += '<dt>Completed</dt><dd>' + escapeHtml(task.actualCompletion) + '</dd>';
+  }
+  if (task.added) {
+    html += '<dt>Added</dt><dd>' + escapeHtml(task.added) + '</dd>';
+  }
+  if (task.updated && task.updated !== task.added) {
+    html += '<dt>Updated</dt><dd>' + escapeHtml(task.updated) + '</dd>';
+  }
+
+  html += '</dl></div>';
+  return html;
+}
+
+// ════════════════════════════════════════════
+//  RENDER: HEADER
+// ════════════════════════════════════════════
+function renderHeader() {
+  const total = tasks.length;
+  let latestDate = null;
+  tasks.forEach(t => {
+    if (t.updated) {
+      const d = parseDate(t.updated);
+      if (d && (!latestDate || d > latestDate)) latestDate = d;
+    }
+  });
+  const months = ['jan','feb','mar','apr','may','jun','jul','aug','sep','oct','nov','dec'];
+  const dateStr = latestDate
+    ? months[latestDate.getMonth()] + ' ' + latestDate.getDate() + ', ' + latestDate.getFullYear()
+    : 'unknown';
+  document.getElementById('header-meta-text').textContent = total + ' tasks \u00B7 last updated ' + dateStr;
+
+  // Data source badge
+  const badge = document.getElementById('data-source-badge');
+  if (dataSource === 'live') {
+    badge.innerHTML = '<span class="data-source live"><span class="data-source-dot"></span>Live</span>';
+  } else if (dataSource === 'embedded') {
+    badge.innerHTML = '<span class="data-source embedded"><span class="data-source-dot"></span>Snapshot</span>';
+  }
+}
+
+// ════════════════════════════════════════════
+//  RENDER: SUMMARY ROW
+// ════════════════════════════════════════════
+function renderSummaryRow() {
+  var statuses = ['progress', 'blocked', 'notstarted', 'done', 'draft'];
+  var html = '<div class="summary-row">';
+  statuses.forEach(function(s) {
+    html += '<div class="summary-card" data-status="' + s + '">';
+    html += '<div class="summary-label">' + statusLabels[s] + '</div>';
+    html += '<div class="summary-value">' + countByStatus(s) + '</div>';
+    html += '</div>';
+  });
+  html += '</div>';
+  return html;
+}
+
+// ════════════════════════════════════════════
+//  RENDER: KANBAN BOARD
+// ════════════════════════════════════════════
+function renderNoResults() {
+  return '<div class="no-results">' +
+    '<div class="no-results-icon">&#x2315;</div>' +
+    '<div class="no-results-text">No tasks match current filters</div>' +
+    '<div class="no-results-sub">Try adjusting your search or filters</div>' +
+    '</div>';
+}
+
+function renderKanban() {
+  var filtered = getFilteredTasks();
+  var columns = ['notstarted', 'progress', 'blocked', 'done'];
+  var drafts = filtered.filter(function(t) { return t.status === 'draft'; }).sort(function(a, b) { return a.priority - b.priority; });
+
+  var html = renderSummaryRow();
+
+  if (hasActiveFilters() && filtered.length === 0) {
+    html += renderNoResults();
+    document.getElementById('view-kanban').innerHTML = html;
+    return;
+  }
+
+  html += '<div class="kanban-grid">';
+  columns.forEach(function(col) {
+    var colTasks = filtered.filter(function(t) { return t.status === col; }).sort(function(a, b) { return a.priority - b.priority; });
+    html += '<div class="kanban-column" data-status="' + col + '">';
+    html += '<div class="kanban-column-header">';
+    html += '<span class="kanban-column-title">' + statusLabels[col] + '</span>';
+    html += '<span class="kanban-column-count">' + colTasks.length + '</span>';
+    html += '</div>';
+
+    colTasks.forEach(function(task) {
+      var date = getDisplayDate(task);
+      html += '<div class="kanban-card" role="button" tabindex="0" aria-expanded="false" onclick="toggleCard(this)" onkeydown="handleCardKey(event,this)">';
+      html += '<div class="kanban-card-title">' + escapeHtml(task.title) + '</div>';
+      html += '<div class="kanban-card-meta">';
+      html += '<span class="badge badge-p' + task.priority + '" style="font-size:0.62rem;padding:2px 6px;">' + priorityLabels[task.priority] + '</span>';
+      html += '<span class="project-tag">' + escapeHtml(task.project) + '</span>';
+      if (date) {
+        html += '<span class="kanban-card-date">' + date + '</span>';
+      }
+      html += '</div>';
+      html += renderDetails(task, 'card-details');
+      html += '</div>';
+    });
+
+    html += '</div>';
+  });
+  html += '</div>';
+
+  // Draft section
+  if (drafts.length > 0) {
+    html += '<div class="draft-section">';
+    html += '<button class="draft-toggle" onclick="toggleDrafts(event)">';
+    html += '<span class="draft-toggle-arrow">&#9654;</span>';
+    html += 'Draft items (' + drafts.length + ') \u2014 not committed';
+    html += '</button>';
+    html += '<div class="draft-cards" id="draft-cards">';
+
+    drafts.forEach(function(task) {
+      html += '<div class="draft-card" role="button" tabindex="0" aria-expanded="false" onclick="toggleCard(this)" onkeydown="handleCardKey(event,this)">';
+      html += '<div class="draft-card-title">' + escapeHtml(task.title) + '</div>';
+      html += '<span class="badge badge-p' + task.priority + '" style="font-size:0.6rem;padding:2px 5px;">' + priorityLabels[task.priority] + '</span>';
+      html += renderDetails(task, 'card-details');
+      html += '</div>';
+    });
+
+    html += '</div></div>';
+  }
+
+  document.getElementById('view-kanban').innerHTML = html;
+}
+
+// ════════════════════════════════════════════
+//  RENDER: COMMAND CENTER
+// ════════════════════════════════════════════
+function renderCommandCenter() {
+  var filtered = getFilteredTasks();
+  var statusOrder = ['done', 'progress', 'blocked', 'notstarted', 'draft'];
+  var counts = {};
+  statusOrder.forEach(function(s) { counts[s] = filtered.filter(function(t) { return t.status === s; }).length; });
+  var total = filtered.length;
+  var activeStatuses = statusOrder.filter(function(s) { return counts[s] > 0; });
+
+  // Handle empty filtered results
+  if (hasActiveFilters() && total === 0) {
+    document.getElementById('view-command').innerHTML = renderNoResults();
+    return;
+  }
+
+  // Status bar
+  var html = '<div class="command-bar-section">';
+  html += '<div class="status-bar-chart">';
+  activeStatuses.forEach(function(s) {
+    html += '<div class="status-bar-segment" data-status="' + s + '" style="flex:' + counts[s] + ';">' + counts[s] + '</div>';
+  });
+  html += '</div>';
+
+  var gridCols = activeStatuses.map(function(s) { return counts[s] + 'fr'; }).join(' ');
+  html += '<div style="display:grid;grid-template-columns:' + gridCols + ';gap:2px;margin-top:6px;">';
+  var shortLabels = { done: 'Done', progress: 'In Progress', blocked: 'Blk', notstarted: 'Not Started', draft: 'Draft' };
+  activeStatuses.forEach(function(s) {
+    html += '<div class="bar-label">' + shortLabels[s] + '</div>';
+  });
+  html += '</div></div>';
+
+  // Layout
+  html += '<div class="command-layout">';
+
+  // Task list
+  var sorted = filtered.slice().sort(function(a, b) {
+    var sw = { progress: 0, blocked: 1, notstarted: 2, draft: 3, done: 4 };
+    var d = (sw[a.status] || 5) - (sw[b.status] || 5);
+    if (d !== 0) return d;
+    return a.priority - b.priority;
+  });
+
+  html += '<div class="task-list-panel">';
+  html += '<div class="task-list-header">';
+  html += '<span class="task-list-title">All Tasks (by priority)</span>';
+  html += '<span class="task-list-count">' + total + ' items</span>';
+  html += '</div>';
+
+  sorted.forEach(function(task) {
+    var isDone = task.status === 'done';
+    var date = getDisplayDate(task);
+    html += '<div class="task-list-item' + (isDone ? ' is-done' : '') + '" role="button" tabindex="0" aria-expanded="false" onclick="toggleRow(this)" onkeydown="handleCardKey(event,this)">';
+    html += '<span class="task-list-priority" style="color:var(--p' + task.priority + ')">' + priorityLabels[task.priority] + '</span>';
+    html += '<span class="task-list-name">' + escapeHtml(task.title) + '</span>';
+    html += '<span class="badge badge-' + task.status + '" style="font-size:0.62rem;padding:2px 6px;"><span class="badge-dot"></span>' + statusCommandLabels[task.status] + '</span>';
+    html += '<span class="task-list-date">' + (date || '') + '</span>';
+    html += '<span class="project-tag">' + escapeHtml(task.project) + '</span>';
+    html += renderDetails(task, 'row-details');
+    html += '</div>';
+  });
+
+  html += '</div>';
+
+  // Stats panel
+  html += '<div class="stats-panel">';
+
+  // Priority distribution (based on filtered tasks)
+  var filteredPriorityCounts = {};
+  [1,2,3,4,5].forEach(function(p) {
+    filteredPriorityCounts[p] = filtered.filter(function(t) { return t.priority === p; }).length;
+  });
+  var maxP = Math.max.apply(null, [1,2,3,4,5].map(function(p) { return filteredPriorityCounts[p]; }));
+  html += '<div class="stat-block">';
+  html += '<div class="stat-block-title">Priority Distribution</div>';
+  html += '<div class="h-bar-chart">';
+  [1,2,3,4,5].forEach(function(p) {
+    var count = filteredPriorityCounts[p];
+    var pct = maxP > 0 ? Math.round((count / maxP) * 100) : 0;
+    html += '<div class="h-bar-row">';
+    html += '<span class="h-bar-label" style="color:var(--p' + p + ')">P' + p + '</span>';
+    html += '<div class="h-bar-track"><div class="h-bar-fill" style="width:' + pct + '%;background:var(--p' + p + ');' + (p >= 4 ? 'opacity:0.6;' : '') + '"></div></div>';
+    html += '<span class="h-bar-value">' + count + '</span>';
+    html += '</div>';
+  });
+  html += '</div></div>';
+
+  // Projects (from filtered tasks)
+  var projectMap = {};
+  filtered.forEach(function(t) {
+    var p = t.project || 'unknown';
+    projectMap[p] = (projectMap[p] || 0) + 1;
+  });
+  var projects = Object.entries(projectMap).sort(function(a, b) { return b[1] - a[1]; });
+  var maxProj = projects.length > 0 ? projects[0][1] : 1;
+  html += '<div class="stat-block">';
+  html += '<div class="stat-block-title">By Project</div>';
+  html += '<div class="project-breakdown">';
+  projects.forEach(function(entry) {
+    var name = entry[0], count = entry[1];
+    var pct = Math.round((count / maxProj) * 100);
+    html += '<div class="project-row">';
+    html += '<span class="project-name">' + escapeHtml(name) + '</span>';
+    html += '<div class="project-count">';
+    html += '<div class="project-bar-mini"><div class="project-bar-mini-fill" style="width:' + pct + '%;"></div></div>';
+    html += '<span class="project-count-num">' + count + '</span>';
+    html += '</div></div>';
+  });
+  html += '</div></div>';
+
+  // Aging (from filtered tasks)
+  var now = new Date();
+  var aging = filtered
+    .filter(function(t) { return t.status !== 'done' && t.status !== 'draft' && t.added; })
+    .map(function(t) {
+      var added = parseDate(t.added);
+      var days = added ? Math.floor((now - added) / (1000 * 60 * 60 * 24)) : 0;
+      return { title: t.title, status: t.status, ageDays: days };
+    })
+    .sort(function(a, b) { return b.ageDays - a.ageDays; })
+    .slice(0, 5);
+  if (aging.length > 0) {
+    html += '<div class="stat-block">';
+    html += '<div class="stat-block-title">Aging (oldest first)</div>';
+    html += '<div class="aging-list">';
+    aging.forEach(function(t) {
+      var cls = t.ageDays >= 7 ? 'critical' : t.ageDays >= 3 ? 'warn' : '';
+      var suffix = t.status === 'blocked' ? ' \u25CF' : '';
+      var truncTitle = t.title.length > 24 ? t.title.slice(0, 24) + '...' : t.title;
+      html += '<div class="aging-item">';
+      html += '<span class="aging-task">' + escapeHtml(truncTitle) + '</span>';
+      html += '<span class="aging-days ' + cls + '">' + t.ageDays + 'd' + suffix + '</span>';
+      html += '</div>';
+    });
+    html += '</div></div>';
+  }
+
+  html += '</div>'; // stats-panel
+  html += '</div>'; // command-layout
+
+  document.getElementById('view-command').innerHTML = html;
+}
+
+// ════════════════════════════════════════════
+//  INTERACTIONS
+// ════════════════════════════════════════════
+function switchView(view) {
+  if (view !== 'kanban' && view !== 'command') return;
+  document.querySelectorAll('.tab').forEach(function(t) { t.classList.remove('active'); });
+  document.querySelectorAll('.view').forEach(function(v) { v.classList.remove('active'); });
+  document.querySelector('[data-view="' + view + '"]').classList.add('active');
+  document.getElementById('view-' + view).classList.add('active');
+}
+
+function toggleDrafts(e) {
+  e.stopPropagation();
+  var btn = document.querySelector('.draft-toggle');
+  var cards = document.getElementById('draft-cards');
+  btn.classList.toggle('open');
+  cards.classList.toggle('open');
+}
+
+function toggleExpand(el) {
+  var isExpanded = el.classList.toggle('expanded');
+  el.setAttribute('aria-expanded', isExpanded ? 'true' : 'false');
+}
+
+function toggleCard(el) {
+  toggleExpand(el);
+}
+
+function toggleRow(el) {
+  toggleExpand(el);
+}
+
+function handleCardKey(e, el) {
+  if (e.key === 'Enter' || e.key === ' ') {
+    e.preventDefault();
+    toggleExpand(el);
+  }
+}
+
+// ════════════════════════════════════════════
+//  FILTERING
+// ════════════════════════════════════════════
+const currentFilters = {
+  text: '',
+  status: '',
+  priority: '',
+  project: '',
+};
+
+function getFilteredTasks() {
+  return tasks.filter(function(t) {
+    // Text search: match title, notes, project, blockers
+    if (currentFilters.text) {
+      const q = currentFilters.text.toLowerCase();
+      const haystack = [t.title, t.notes, t.project, t.blockers || '']
+        .join(' ').toLowerCase();
+      if (haystack.indexOf(q) === -1) return false;
+    }
+    // Status filter
+    if (currentFilters.status && t.status !== currentFilters.status) return false;
+    // Priority filter
+    if (currentFilters.priority && t.priority !== parseInt(currentFilters.priority)) return false;
+    // Project filter
+    if (currentFilters.project && (t.project || '').toLowerCase() !== currentFilters.project.toLowerCase()) return false;
+    return true;
+  });
+}
+
+function hasActiveFilters() {
+  return currentFilters.text !== '' || currentFilters.status !== '' || currentFilters.priority !== '' || currentFilters.project !== '';
+}
+
+function updateFilterUI() {
+  var filtered = getFilteredTasks();
+  var countEl = document.getElementById('filter-count');
+  var clearBtn = document.getElementById('filter-clear');
+
+  if (hasActiveFilters()) {
+    countEl.innerHTML = '<strong>' + filtered.length + '</strong> of ' + tasks.length + ' tasks';
+    clearBtn.classList.add('visible');
+  } else {
+    countEl.textContent = '';
+    clearBtn.classList.remove('visible');
+  }
+
+  // Mark selects as active when a filter is chosen
+  document.getElementById('filter-status').classList.toggle('active', currentFilters.status !== '');
+  document.getElementById('filter-priority').classList.toggle('active', currentFilters.priority !== '');
+  document.getElementById('filter-project').classList.toggle('active', currentFilters.project !== '');
+}
+
+function applyFilters() {
+  updateFilterUI();
+  renderKanban();
+  renderCommandCenter();
+}
+
+function clearFilters() {
+  currentFilters.text = '';
+  currentFilters.status = '';
+  currentFilters.priority = '';
+  currentFilters.project = '';
+  document.getElementById('filter-text').value = '';
+  document.getElementById('filter-status').value = '';
+  document.getElementById('filter-priority').value = '';
+  document.getElementById('filter-project').value = '';
+  applyFilters();
+}
+
+// Bind filter inputs
+document.getElementById('filter-text').addEventListener('input', function(e) {
+  currentFilters.text = e.target.value;
+  applyFilters();
+});
+
+document.getElementById('filter-status').addEventListener('change', function(e) {
+  currentFilters.status = e.target.value;
+  applyFilters();
+});
+
+document.getElementById('filter-priority').addEventListener('change', function(e) {
+  currentFilters.priority = e.target.value;
+  applyFilters();
+});
+
+document.getElementById('filter-project').addEventListener('change', function(e) {
+  currentFilters.project = e.target.value;
+  applyFilters();
+});
+
+// Keyboard shortcuts
+document.addEventListener('keydown', function(e) {
+  if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'SELECT') return;
+  if (e.key === 'b' || e.key === 'B') switchView('kanban');
+  if (e.key === 'c' || e.key === 'C') switchView('command');
+  if (e.key === 'r' || e.key === 'R') refreshData();
+  if (e.key === '/') {
+    e.preventDefault();
+    document.getElementById('filter-text').focus();
+  }
+  if (e.key === 'Escape') {
+    if (hasActiveFilters()) {
+      clearFilters();
+    }
+  }
+});
+
+// Allow Escape from search input to blur and clear
+document.getElementById('filter-text').addEventListener('keydown', function(e) {
+  if (e.key === 'Escape') {
+    e.target.blur();
+    if (hasActiveFilters()) clearFilters();
+  }
+});
+
+// ════════════════════════════════════════════
+//  DATA LOADING & REFRESH
+// ════════════════════════════════════════════
+function showError(message) {
+  const container = document.getElementById('error-container');
+  container.innerHTML = '<div class="error-banner">' +
+    '<span>' + escapeHtml(message) + '</span>' +
+    '<button class="error-banner-dismiss" onclick="this.parentElement.remove()" aria-label="Dismiss">&times;</button>' +
+    '</div>';
+}
+
+function clearErrors() {
+  document.getElementById('error-container').innerHTML = '';
+}
+
+function populateProjectFilter() {
+  var select = document.getElementById('filter-project');
+  var current = select.value;
+  var projects = [];
+  var seen = {};
+  tasks.forEach(function(t) {
+    var p = t.project || 'unknown';
+    if (!seen[p]) {
+      seen[p] = true;
+      projects.push(p);
+    }
+  });
+  projects.sort();
+  select.innerHTML = '<option value="">All projects</option>';
+  projects.forEach(function(p) {
+    var opt = document.createElement('option');
+    opt.value = p;
+    opt.textContent = p;
+    select.appendChild(opt);
+  });
+  // Restore previous selection if still valid
+  if (current && seen[current]) {
+    select.value = current;
+  }
+}
+
+function renderAll() {
+  populateProjectFilter();
+  renderHeader();
+  updateFilterUI();
+  renderKanban();
+  renderCommandCenter();
+}
+
+async function loadBacklog() {
+  try {
+    // Step 1: Get list of task files
+    const listRes = await fetch(TASKS_API);
+    if (!listRes.ok) throw new Error('HTTP ' + listRes.status);
+    const fileNames = await listRes.json();
+
+    // Step 2: Fetch each task file in parallel
+    const fetches = fileNames.map(name =>
+      fetch(TASKS_DIR + name).then(r => {
+        if (!r.ok) throw new Error('HTTP ' + r.status + ' for ' + name);
+        return r.text();
+      })
+    );
+    const contents = await Promise.all(fetches);
+
+    // Step 3: Parse each file
+    tasks = contents.map(parseTaskFile).filter(Boolean);
+    dataSource = 'live';
+    return true;
+  } catch (e) {
+    // Fallback to embedded data
+    if (FALLBACK_TASKS.length > 0) {
+      tasks = FALLBACK_TASKS;
+      dataSource = 'embedded';
+    } else {
+      tasks = [];
+      dataSource = 'none';
+    }
+    return false;
+  }
+}
+
+let isRefreshing = false;
+async function refreshData() {
+  if (isRefreshing) return;
+  isRefreshing = true;
+  const btn = document.getElementById('refresh-btn');
+  btn.classList.add('spinning');
+  btn.textContent = 'Loading...';
+  clearErrors();
+
+  const wasLive = await loadBacklog();
+  renderAll();
+
+  if (!wasLive && dataSource === 'embedded') {
+    showError('Could not fetch live data — showing embedded snapshot. Use a local server for live loading.');
+  }
+
+  btn.classList.remove('spinning');
+  btn.textContent = 'Refresh';
+  isRefreshing = false;
+}
+
+// ════════════════════════════════════════════
+//  INIT
+// ════════════════════════════════════════════
+(async function init() {
+  const wasLive = await loadBacklog();
+
+  // Remove loading indicator
+  const loader = document.getElementById('loading-indicator');
+  if (loader) loader.remove();
+
+  renderAll();
+
+  if (!wasLive) {
+    showError('Live loading unavailable (serve via HTTP for live data). Showing embedded snapshot.');
+  }
+})();
+</script>
+
+</body>
+</html>

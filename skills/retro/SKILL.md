@@ -3,7 +3,7 @@ name: retro
 description: Use when something goes wrong during a session — failure analysis with 5-Whys root cause investigation
 ---
 
-# /dev-org:retro
+# /claude-code-skills:retro
 
 Failure analysis skill for in-session incidents. When something goes wrong — Claude makes a mistake, a process fails, you catch an error — invoke retro while context is fresh.
 
@@ -25,13 +25,13 @@ Use this skill when:
 - **A pattern repeated** — Same type of failure happened again
 
 **What it's NOT:**
-- Not for general learnings (that's `/dev-org:review`)
+- Not for general learnings (that's `/claude-code-skills:review`)
 - Not for post-session reflection (retro needs live session context)
 - Not for project retrospectives (this is incident-level, not project-level)
 
 **Rule of thumb:**
-- Session went well, captured some insights → `/dev-org:review`
-- Something broke and you want to understand why → `/dev-org:retro`
+- Session went well, captured some insights → `/claude-code-skills:review`
+- Something broke and you want to understand why → `/claude-code-skills:retro`
 
 ---
 
@@ -372,7 +372,7 @@ All file paths in this skill are relative to the dev-org repo root.
 
 ### Example 1: Simple failure with lesson only
 
-User: `/dev-org:retro`
+User: `/claude-code-skills:retro`
 
 *Context: Claude just declared a feature "done" but the user found it wasn't actually working when tested.*
 
@@ -433,13 +433,13 @@ User: "Lesson only is fine"
 
 ### Example 2: Pattern detected with escalation
 
-User: `/dev-org:retro`
+User: `/claude-code-skills:retro`
 
 *Context: Claude asked "What went well?" during a review instead of proposing learnings from session context.*
 
 Response:
 
-> **Failure identified:** During `/dev-org:review`, asked open-ended questions ("What was challenging?") instead of proposing learnings based on session context.
+> **Failure identified:** During `/claude-code-skills:review`, asked open-ended questions ("What was challenging?") instead of proposing learnings based on session context.
 >
 > **Why #1:** Why did I ask questions instead of proposing?
 > → **Proposed answer:** Because the default behavior is to gather information rather than synthesize what I already observed.
@@ -507,7 +507,7 @@ User: "Yes"
 
 ### Example 3: Failure with backlog task needed
 
-User: `/dev-org:retro`
+User: `/claude-code-skills:retro`
 
 *Context: The handoff skill skipped Step 5 (starter prompt) entirely during execution.*
 

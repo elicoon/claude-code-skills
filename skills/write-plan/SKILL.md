@@ -3,7 +3,7 @@ name: write-plan
 description: Create implementation plans with mandatory verification steps
 ---
 
-# /dev-org:write-plan
+# /claude-code-skills:write-plan
 
 Wrapper for `superpowers:writing-plans` that enforces dev-org verification standards by automatically including code-review and test-feature as final tasks in every plan.
 
@@ -50,7 +50,7 @@ After the plan is written but BEFORE presenting execution options, append these 
 
 ### Task N+1: Code Review
 
-**Invoke:** `/dev-org:code-review`
+**Invoke:** `/claude-code-skills:code-review`
 
 Review all implementation work for:
 - Conventional commits (feat/fix/docs/chore prefixes)
@@ -62,7 +62,7 @@ Review all implementation work for:
 
 ### Task N+2: Feature Testing
 
-**Invoke:** `/dev-org:test-feature [feature name]`
+**Invoke:** `/claude-code-skills:test-feature [feature name]`
 
 Test the complete user experience:
 - Primary use cases work as expected
@@ -107,7 +107,7 @@ Now present the execution choice from superpowers:writing-plans:
 
 ### Example: Plan with verification appended
 
-User invokes `/dev-org:write-plan` for a new feature.
+User invokes `/claude-code-skills:write-plan` for a new feature.
 
 After superpowers:writing-plans creates:
 ```markdown
@@ -153,7 +153,7 @@ After the implementation plan is written and saved:
 
 > Implementation plan complete. Now generating UAT and test checklist...
 
-Invoke `/dev-org:uat` with the plan file:
+Invoke `/claude-code-skills:uat` with the plan file:
 - Pass the plan file path as argument
 - Wait for test data confirmation
 - Generate UAT doc and checklist

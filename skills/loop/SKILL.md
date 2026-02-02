@@ -3,7 +3,7 @@ name: loop
 description: Initialize and manage Ralph Loop documents for filesystem-centric iterative workflows
 ---
 
-# /dev-org:loop
+# /claude-code-skills:loop
 
 Create and manage living plan documents that enable iterative, filesystem-centric workflows. Based on Ralph Loop principles where the filesystem is the single source of truth.
 
@@ -24,7 +24,7 @@ Default (no subcommand): Same as `init`.
 
 ---
 
-## `/dev-org:loop init`
+## `/claude-code-skills:loop init`
 
 Create a new loop document for a mission.
 
@@ -38,7 +38,7 @@ Ask the user to describe what they want to accomplish:
 
 > What's the mission? Describe what success looks like in one sentence.
 
-If the user already provided a mission (e.g., `/dev-org:loop init Fix the export bug`), use that.
+If the user already provided a mission (e.g., `/claude-code-skills:loop init Fix the export bug`), use that.
 
 #### Step 2: Determine Workflow Type
 
@@ -137,11 +137,11 @@ Present proposed steps and ask for confirmation/modifications.
 >
 > To begin: Read the loop document and execute Step 1.
 > After each step: Update the document before exiting.
-> To check status: `/dev-org:loop status`
+> To check status: `/claude-code-skills:loop status`
 
 ---
 
-## `/dev-org:loop status`
+## `/claude-code-skills:loop status`
 
 Show the current state of an active loop.
 
@@ -170,7 +170,7 @@ Show the current state of an active loop.
 
 ---
 
-## `/dev-org:loop iterate`
+## `/claude-code-skills:loop iterate`
 
 Manually trigger the next iteration (usually done when tests fail or verification shows issues).
 
@@ -179,7 +179,7 @@ Manually trigger the next iteration (usually done when tests fail or verificatio
 1. Find the active loop document
 2. Increment the iteration counter
 3. Check if iteration > max_iterations
-   - If yes: Mark loop as failed, suggest `/dev-org:handoff`
+   - If yes: Mark loop as failed, suggest `/claude-code-skills:handoff`
 4. Update the Iteration Log with trigger reason
 5. Reset appropriate steps based on failure point:
    - Test failure → reset to implementation step
@@ -189,7 +189,7 @@ Manually trigger the next iteration (usually done when tests fail or verificatio
 
 ---
 
-## `/dev-org:loop close`
+## `/claude-code-skills:loop close`
 
 Complete and archive a loop.
 
@@ -250,10 +250,10 @@ Every agent working on a loop step must:
 
 | Scenario | Integration |
 |----------|-------------|
-| Loop fails (max iterations) | Generate handoff with `/dev-org:handoff` |
-| Continuing from handoff | If handoff references a loop, resume via `/dev-org:loop status` |
-| Creating acceptance criteria | Can use `/dev-org:uat` to generate detailed test criteria |
-| Failure analysis | Use `/dev-org:retro` after loop failure |
+| Loop fails (max iterations) | Generate handoff with `/claude-code-skills:handoff` |
+| Continuing from handoff | If handoff references a loop, resume via `/claude-code-skills:loop status` |
+| Creating acceptance criteria | Can use `/claude-code-skills:uat` to generate detailed test criteria |
+| Failure analysis | Use `/claude-code-skills:retro` after loop failure |
 
 ---
 
@@ -261,7 +261,7 @@ Every agent working on a loop step must:
 
 ### Example 1: Initialize a debugging loop
 
-User: `/dev-org:loop init Fix the HEVC export bug`
+User: `/claude-code-skills:loop init Fix the HEVC export bug`
 
 Response:
 > I'll create a debugging loop for fixing the HEVC export bug.
@@ -299,7 +299,7 @@ User: "Yes"
 
 ### Example 2: Check loop status
 
-User: `/dev-org:loop status`
+User: `/claude-code-skills:loop status`
 
 Response:
 > **Loop Status:** 2026-02-01-hevc-export-fix.loop.md
@@ -324,7 +324,7 @@ Response:
 
 ### Example 3: Close a completed loop
 
-User: `/dev-org:loop close`
+User: `/claude-code-skills:loop close`
 
 Response:
 > Checking acceptance criteria for 2026-02-01-hevc-export-fix.loop.md...

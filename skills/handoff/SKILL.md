@@ -3,7 +3,7 @@ name: handoff
 description: Use when context window is getting full and work needs to be handed off to a fresh Claude Code session
 ---
 
-# /dev-org:handoff
+# /claude-code-skills:handoff
 
 Package session context into artifacts for continuation by a fresh Claude Code session.
 
@@ -46,9 +46,9 @@ Before starting, check for `.dev-org.yaml` in the project root:
 
 ---
 
-### Step 1: Run /dev-org:review First
+### Step 1: Run /claude-code-skills:review First
 
-**Always run `/dev-org:review` before generating the handoff.**
+**Always run `/claude-code-skills:review` before generating the handoff.**
 
 This captures learnings to the reference layer before packaging. Tell the user:
 
@@ -177,7 +177,7 @@ Handoff document: [PATH_TO_HANDOFF_MD]
 
 **Execute this handoff using the executing-handoffs skill.**
 
-Read the handoff document, then invoke `/dev-org:executing-handoffs` to orchestrate the work. This skill will:
+Read the handoff document, then invoke `/claude-code-skills:executing-handoffs` to orchestrate the work. This skill will:
 1. Digest the handoff context and confirm understanding with you
 2. Classify the work type and decompose remaining tasks
 3. Execute via subagents (keeping the main thread lightweight for coordination)
@@ -188,7 +188,7 @@ If the executing-handoffs skill is not available, read the handoff document manu
 
 After completing the work:
 1. Update the backlog status for this task
-2. If work remains, offer to generate another handoff using /dev-org:handoff
+2. If work remains, offer to generate another handoff using /claude-code-skills:handoff
 3. Rename the handoff file to add "-archived" suffix
 ```
 
@@ -298,12 +298,12 @@ All file paths in this skill are relative to the dev-org repo root unless otherw
 
 ### Example 1: Implementation handoff with formal plan
 
-User: `/dev-org:handoff`
+User: `/claude-code-skills:handoff`
 
 Response:
 > Before creating the handoff, let's capture any learnings from this session.
 >
-> [Runs /dev-org:review - captures learnings about the implementation approach]
+> [Runs /claude-code-skills:review - captures learnings about the implementation approach]
 
 After review completes:
 
@@ -347,7 +347,7 @@ User: "That's right, go ahead"
 >
 > **Execute this handoff using the executing-handoffs skill.**
 >
-> Read the handoff document, then invoke `/dev-org:executing-handoffs` to orchestrate the work. This skill will:
+> Read the handoff document, then invoke `/claude-code-skills:executing-handoffs` to orchestrate the work. This skill will:
 > 1. Digest the handoff context and confirm understanding with you
 > 2. Classify the work type and decompose remaining tasks
 > 3. Execute via subagents (keeping the main thread lightweight for coordination)
@@ -358,7 +358,7 @@ User: "That's right, go ahead"
 >
 > After completing the work:
 > 1. Update the backlog status for this task
-> 2. If work remains, offer to generate another handoff using /dev-org:handoff
+> 2. If work remains, offer to generate another handoff using /claude-code-skills:handoff
 > 3. Rename the handoff file to add "-archived" suffix
 > ```
 >
@@ -370,12 +370,12 @@ User: "That's right, go ahead"
 
 ### Example 2: Debugging session handoff (no formal plan)
 
-User: `/dev-org:handoff`
+User: `/claude-code-skills:handoff`
 
 Response:
 > Before creating the handoff, let's capture any learnings from this session.
 >
-> [Runs /dev-org:review - captures what was discovered about the bug]
+> [Runs /claude-code-skills:review - captures what was discovered about the bug]
 
 After review completes:
 
@@ -419,7 +419,7 @@ User: "I need to hand this off, we've been researching options for the caching l
 Response:
 > Before creating the handoff, let's capture any learnings from this session.
 >
-> [Runs /dev-org:review]
+> [Runs /claude-code-skills:review]
 
 After review:
 
@@ -455,7 +455,7 @@ User: "Perfect"
 
 ## Reminders
 
-- **Always run /dev-org:review first** - Capture learnings before packaging
+- **Always run /claude-code-skills:review first** - Capture learnings before packaging
 - **"What We Learned" is critical** - This is what would be lost without the handoff
 - **Verify the handoff file** - Read it back and confirm accuracy
 - **Starter prompt is deterministic** - Use the template exactly, just fill in the blanks

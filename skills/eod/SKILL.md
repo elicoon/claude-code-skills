@@ -3,7 +3,7 @@ name: eod
 description: End-of-day wrap-up - process pending lessons, check for loose ends, prep for tomorrow
 ---
 
-# /dev-org:eod
+# /claude-code-skills:eod
 
 End-of-day ritual to close out the workday cleanly.
 
@@ -71,7 +71,7 @@ After processing, clear the queue file back to its empty template:
 ```markdown
 # Pending Review Items
 
-Items queued for daily review. Run `/dev-org:eod` to process.
+Items queued for daily review. Run `/claude-code-skills:eod` to process.
 
 ---
 ```
@@ -165,7 +165,7 @@ The pending review file at `{REFERENCE_PATH}/lessons/pending-review.md` uses thi
 ```markdown
 # Pending Review Items
 
-Items queued for daily review. Run `/dev-org:eod` to process.
+Items queued for daily review. Run `/claude-code-skills:eod` to process.
 
 ---
 

@@ -3,7 +3,7 @@ name: code-review
 description: Invoke deep code review with consistent criteria
 ---
 
-# /dev-org:code-review
+# /claude-code-skills:code-review
 
 Wrapper skill that invokes `superpowers:code-reviewer` with dev-org conventions.
 
@@ -31,10 +31,10 @@ When this skill is invoked:
 
 Check if the user specified files or scope:
 
-**With scope provided:** `/dev-org:code-review src/feature/`
+**With scope provided:** `/claude-code-skills:code-review src/feature/`
 - Review the specified files/directory
 
-**Without scope:** `/dev-org:code-review`
+**Without scope:** `/claude-code-skills:code-review`
 - Check git status for recent changes
 - If no uncommitted changes, ask what to review
 
@@ -71,7 +71,7 @@ Present findings with:
 
 ### Example 1: Review recent changes
 
-User: `/dev-org:code-review`
+User: `/claude-code-skills:code-review`
 
 > Let me check what's changed...
 >
@@ -95,7 +95,7 @@ User: `/dev-org:code-review`
 
 ### Example 2: Review specific directory
 
-User: `/dev-org:code-review skills/orient/`
+User: `/claude-code-skills:code-review skills/orient/`
 
 > Running deep code review on skills/orient/...
 >

@@ -3,7 +3,7 @@ name: add
 description: Use when capturing new tasks, ideas, or updating task status in the backlog
 ---
 
-# /dev-org:add
+# /claude-code-skills:add
 
 Add new tasks or ideas to the backlog, or update the status of existing tasks.
 
@@ -37,7 +37,7 @@ Check if the user provided task information with the command:
 
 **Direct mode** (user provided info): The user included task details like a title, description, or status update. Proceed to Step 2.
 
-**Interactive mode** (no details provided): The user just invoked `/dev-org:add` without specifics. Ask:
+**Interactive mode** (no details provided): The user just invoked `/claude-code-skills:add` without specifics. Ask:
 
 > What would you like to add or update?
 >
@@ -299,7 +299,7 @@ All file paths in this skill are relative to the dev-org repo root.
 
 ### Example 1: Quick idea capture
 
-User: `/dev-org:add` "look into using Cursor for pair programming"
+User: `/claude-code-skills:add` "look into using Cursor for pair programming"
 
 Response:
 > Adding as a draft idea. Let me check for duplicates first...
@@ -329,7 +329,7 @@ Response:
 
 ### Example 2: Status update
 
-User: `/dev-org:add` mark "Set up dev-org repo" as done
+User: `/claude-code-skills:add` mark "Set up dev-org repo" as done
 
 Response:
 > Let me find that task and update it...
@@ -355,7 +355,7 @@ Response:
 
 ### Example 3: Interactive mode
 
-User: `/dev-org:add`
+User: `/claude-code-skills:add`
 
 Response:
 > What would you like to add or update?

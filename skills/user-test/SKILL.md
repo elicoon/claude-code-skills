@@ -3,7 +3,7 @@ name: user-test
 description: Hands-free user testing. User tests and narrates, Claude captures everything, creates bug tasks, proposes fixes.
 ---
 
-# /dev-org:user-test
+# /claude-code-skills:user-test
 
 Hands-free user testing with automatic capture.
 
@@ -48,8 +48,8 @@ If a component can't be auto-started, the skill will provide specific instructio
 
 | Command | What Happens |
 |---------|--------------|
-| `/dev-org:user-test start [url]` | Opens URL in Chrome, starts capture layers |
-| `/dev-org:user-test stop` | Stops recording, analyzes session, creates bugs, proposes fixes |
+| `/claude-code-skills:user-test start [url]` | Opens URL in Chrome, starts capture layers |
+| `/claude-code-skills:user-test stop` | Stops recording, analyzes session, creates bugs, proposes fixes |
 
 ---
 
@@ -69,7 +69,7 @@ Before starting, check for `.dev-org.yaml` in the project root:
 
 ### Mode: start
 
-When `/dev-org:user-test start [url]`:
+When `/claude-code-skills:user-test start [url]`:
 
 #### Step 1: Pre-Flight Check - OBS + WebSocket (Primary Screen Recording)
 
@@ -119,7 +119,7 @@ Start-Process -FilePath "screenpipe" -WindowStyle Minimized
 Wait 5 seconds, then re-check health endpoint. If still not running after 3 attempts:
 > **❌ ScreenPipe failed to start.**
 > Manual fix: Open a terminal and run `screenpipe`
-> Then retry `/dev-org:user-test start [url]`
+> Then retry `/claude-code-skills:user-test start [url]`
 
 #### Step 2: Pre-Flight Check - OBS + LocalVocal (Audio Transcription)
 
@@ -299,13 +299,13 @@ Tell Chrome DevTools MCP to start capturing:
 > - Use the product normally
 > - Talk out loud about what you're doing and any issues
 > - Reference positions by coordinates shown in the overlay
-> - When done: `/dev-org:user-test stop`
+> - When done: `/claude-code-skills:user-test stop`
 
 ---
 
 ### Mode: stop
 
-When `/dev-org:user-test stop`:
+When `/claude-code-skills:user-test stop`:
 
 #### Step 1: Record End Time
 Note timestamp, calculate duration.
@@ -444,7 +444,7 @@ Content:
 > 1. Open a new terminal
 > 2. Run: `screenpipe`
 > 3. Wait for "Server started" message
-> 4. Retry: `/dev-org:user-test start [url]`
+> 4. Retry: `/claude-code-skills:user-test start [url]`
 >
 > Common issues:
 > - ScreenPipe not installed: `pip install screenpipe` or download from GitHub

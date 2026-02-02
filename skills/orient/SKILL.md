@@ -3,7 +3,7 @@ name: orient
 description: Use when starting a work session to review backlog, calendar, and priorities for deciding what to work on next
 ---
 
-# /dev-org:orient
+# /claude-code-skills:orient
 
 **Purpose:** Review backlog, calendar, and context to facilitate a prioritization discussion and help decide what to work on next.
 
@@ -183,8 +183,8 @@ Or, if still undecided:
 
 | Issue | Response |
 |-------|----------|
-| **Backlog file missing** | "I couldn't find your backlog. Want me to run `/dev-org:add` to set it up?" |
-| **Backlog is empty** | "Your backlog is empty - nothing committed. Either add tasks with `/dev-org:add` or take a well-deserved break." |
+| **Backlog file missing** | "I couldn't find your backlog. Want me to run `/claude-code-skills:add` to set it up?" |
+| **Backlog is empty** | "Your backlog is empty - nothing committed. Either add tasks with `/claude-code-skills:add` or take a well-deserved break." |
 | **Calendar MCP unavailable** | Note "Calendar unavailable" and proceed with backlog-only prioritization. |
 | **Reference files missing** | Proceed without that context - backlog is the primary source |
 | **No tasks in progress or committed** | "You have no active or committed work. This is either a great sign or a prompt to review your draft ideas." |
@@ -218,7 +218,7 @@ None. This is strictly read-only.
 
 ### Example 1: Normal workday start
 
-**User:** `/dev-org:orient`
+**User:** `/claude-code-skills:orient`
 
 **Claude:**
 
@@ -243,7 +243,7 @@ None. This is strictly read-only.
 
 > 90 minutes is solid for focused work. The orient skill is well-scoped for that window.
 >
-> **Decision:** Focus on implementing `/dev-org:orient` for the next 90 minutes. After standup, reassess given the afternoon appointments.
+> **Decision:** Focus on implementing `/claude-code-skills:orient` for the next 90 minutes. After standup, reassess given the afternoon appointments.
 >
 > Ready to dive in, or need anything else first?
 
@@ -251,7 +251,7 @@ None. This is strictly read-only.
 
 ### Example 2: Feeling overwhelmed
 
-**User:** `/dev-org:orient` - I'm feeling scattered today
+**User:** `/claude-code-skills:orient` - I'm feeling scattered today
 
 **Claude:**
 
@@ -287,7 +287,7 @@ None. This is strictly read-only.
 
 ### Example 3: Empty backlog
 
-**User:** `/dev-org:orient`
+**User:** `/claude-code-skills:orient`
 
 **Claude:**
 
@@ -316,7 +316,7 @@ None. This is strictly read-only.
 ## Reminders
 
 - **This is a conversation, not a report.** Don't just dump status; facilitate a decision.
-- **Read-only.** Orient never modifies files. Use `/dev-org:add` for changes.
+- **Read-only.** Orient never modifies files. Use `/claude-code-skills:add` for changes.
 - **One priority.** Help narrow focus to a single task, not a to-do list.
 - **Respect constraints.** Factor in any time/resource constraints from {USER_NAME}'s profile.
 - **Energy matters.** The right task depends on how {USER_NAME} is feeling.

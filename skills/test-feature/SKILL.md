@@ -3,7 +3,7 @@ name: test-feature
 description: Structured product/feature testing workflow
 ---
 
-# /dev-org:test-feature
+# /claude-code-skills:test-feature
 
 Structured workflow for testing features end-to-end before considering them complete.
 
@@ -18,7 +18,7 @@ Use when:
 ## When NOT to Use
 
 - For unit tests (those should run during development)
-- For code review (use `/dev-org:code-review`)
+- For code review (use `/claude-code-skills:code-review`)
 - When you haven't built anything yet
 
 ---
@@ -31,10 +31,10 @@ When this skill is invoked:
 
 Check if the user specified a feature:
 
-**With feature specified:** `/dev-org:test-feature user authentication`
+**With feature specified:** `/claude-code-skills:test-feature user authentication`
 - Test the specified feature
 
-**Without specification:** `/dev-org:test-feature`
+**Without specification:** `/claude-code-skills:test-feature`
 - Check recent commits/changes for context
 - Ask: "What feature should I test?"
 
@@ -236,7 +236,7 @@ When failures are found, include bug task summary:
 > - Fix bugs (I can help)
 > - Run `[test command]` to verify fixes
 > - Complete UAT checklist in each bug task
-> - Re-run `/dev-org:test-feature` to confirm all tests pass
+> - Re-run `/claude-code-skills:test-feature` to confirm all tests pass
 
 ---
 
@@ -244,7 +244,7 @@ When failures are found, include bug task summary:
 
 ### Example 1: Test dashboard feature
 
-User: `/dev-org:test-feature dashboard`
+User: `/claude-code-skills:test-feature dashboard`
 
 > **Test Plan for Dashboard**
 >
@@ -284,7 +284,7 @@ User: "yes"
 
 ### Example 2: Test with failures
 
-User: `/dev-org:test-feature context hook`
+User: `/claude-code-skills:test-feature context hook`
 
 > Testing context monitor hook...
 >

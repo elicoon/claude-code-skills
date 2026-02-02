@@ -1250,7 +1250,7 @@ const FALLBACK_TASKS = [
     "plannedCompletion": null,
     "actualCompletion": null,
     "blockers": null,
-    "notes": "Create a `/dev-org:triage` skill for full backlog prioritization passes. Would audit for missing items, resolve priority conflicts, re-rank, and present changes for approval. Currently done manually — codify if it becomes a recurring need.",
+    "notes": "Create a `/claude-code-skills:triage` skill for full backlog prioritization passes. Would audit for missing items, resolve priority conflicts, re-rank, and present changes for approval. Currently done manually — codify if it becomes a recurring need.",
     "spec": null,
     "added": "2026-01-28",
     "updated": "2026-01-28",
@@ -1372,7 +1372,7 @@ const FALLBACK_TASKS = [
     "plannedCompletion": null,
     "actualCompletion": "2026-01-27",
     "blockers": null,
-    "notes": "Fifth skill for dev-org. Packages session context into handoff documents and starter prompts for continuation by fresh Claude Code sessions. Integrates with /dev-org:review to capture learnings first.",
+    "notes": "Fifth skill for dev-org. Packages session context into handoff documents and starter prompts for continuation by fresh Claude Code sessions. Integrates with /claude-code-skills:review to capture learnings first.",
     "spec": null,
     "added": "2026-01-27",
     "updated": "2026-01-27",
@@ -1390,7 +1390,7 @@ const FALLBACK_TASKS = [
     "plannedCompletion": null,
     "actualCompletion": null,
     "blockers": null,
-    "notes": "A `/dev-org:retro` skill invoked when something has gone wrong with Claude's behavior during a session. Uses the transcript as raw material to create a powerful teaching moment — extracts what went wrong, why it went wrong, what the correct behavior should have been, and encodes the learning into the reference layer (lessons.md, preferences.md, or a new anti-patterns file). The goal is to turn failure into durable improvement so the same mistake never recurs across sessions.",
+    "notes": "A `/claude-code-skills:retro` skill invoked when something has gone wrong with Claude's behavior during a session. Uses the transcript as raw material to create a powerful teaching moment — extracts what went wrong, why it went wrong, what the correct behavior should have been, and encodes the learning into the reference layer (lessons.md, preferences.md, or a new anti-patterns file). The goal is to turn failure into durable improvement so the same mistake never recurs across sessions.",
     "spec": null,
     "added": "2026-01-28",
     "updated": "2026-01-28",
@@ -1415,8 +1415,8 @@ const FALLBACK_TASKS = [
     "added": "2026-01-28",
     "updated": "2026-01-28",
     "nextSteps": [
-      "**Code Review skill** - Create `/dev-org:code-review` that invokes deep code review with consistent criteria",
-      "**Feature Testing skill** - Create `/dev-org:test-feature` for structured product/feature testing workflow",
+      "**Code Review skill** - Create `/claude-code-skills:code-review` that invokes deep code review with consistent criteria",
+      "**Feature Testing skill** - Create `/claude-code-skills:test-feature` for structured product/feature testing workflow",
       "Assess remaining workflows (REPL Loop, Auto-Compaction, GSD integration) for skill conversion",
       "Update workflows.md to link to corresponding skills"
     ]
@@ -1563,7 +1563,7 @@ const FALLBACK_TASKS = [
     "plannedCompletion": null,
     "actualCompletion": null,
     "blockers": null,
-    "notes": "Enhance /dev-org:handoff skill to support referencing files from other directories/projects in starter prompts. Currently handoff documents assume context within the same directory. Cross-directory references would enable handoffs that span multiple repos or include relevant files from related projects.",
+    "notes": "Enhance /claude-code-skills:handoff skill to support referencing files from other directories/projects in starter prompts. Currently handoff documents assume context within the same directory. Cross-directory references would enable handoffs that span multiple repos or include relevant files from related projects.",
     "spec": null,
     "added": "2026-01-28",
     "updated": "2026-01-28",
@@ -1600,7 +1600,7 @@ const FALLBACK_TASKS = [
     "plannedCompletion": null,
     "actualCompletion": "2026-01-28",
     "blockers": null,
-    "notes": "Claude Code hook that monitors context window usage after every Claude turn. When estimated usage crosses 60%, automatically triggers `/dev-org:handoff` to package the session for continuation. Uses Node.js script (`hooks/context-monitor.js`) with streaming JSONL transcript parsing, chars/4 token estimation heuristic, single-fire marker mechanism, and JSONL usage logging. Installed as Stop + PreCompact hooks in `~/.claude/settings.json`. 49 tests passing. Design doc: `docs/plans/2026-01-28-auto-handoff-hook-design.md`.",
+    "notes": "Claude Code hook that monitors context window usage after every Claude turn. When estimated usage crosses 60%, automatically triggers `/claude-code-skills:handoff` to package the session for continuation. Uses Node.js script (`hooks/context-monitor.js`) with streaming JSONL transcript parsing, chars/4 token estimation heuristic, single-fire marker mechanism, and JSONL usage logging. Installed as Stop + PreCompact hooks in `~/.claude/settings.json`. 49 tests passing. Design doc: `docs/plans/2026-01-28-auto-handoff-hook-design.md`.",
     "spec": null,
     "added": "2026-01-27",
     "updated": "2026-01-28",
@@ -1623,7 +1623,7 @@ const FALLBACK_TASKS = [
     "plannedCompletion": null,
     "actualCompletion": null,
     "blockers": null,
-    "notes": "Use Claude Code hooks to automatically invoke /dev-org:orient when a new session starts. Natural companion to the existing \"auto-review at session end\" hook idea. Would ensure every session begins with context awareness and prioritization. Originally described in phase-4-handoff.md Phase 6 capabilities.",
+    "notes": "Use Claude Code hooks to automatically invoke /claude-code-skills:orient when a new session starts. Natural companion to the existing \"auto-review at session end\" hook idea. Would ensure every session begins with context awareness and prioritization. Originally described in phase-4-handoff.md Phase 6 capabilities.",
     "spec": null,
     "added": "2026-01-28",
     "updated": "2026-01-28",
@@ -1634,14 +1634,14 @@ const FALLBACK_TASKS = [
     ]
   },
   {
-    "title": "Hook: Auto-run /dev-org:review at session end",
+    "title": "Hook: Auto-run /claude-code-skills:review at session end",
     "project": "dev-org",
     "status": "draft",
     "priority": 2,
     "plannedCompletion": null,
     "actualCompletion": null,
     "blockers": null,
-    "notes": "Use Claude Code hooks to automatically invoke /dev-org:review when a session ends. Ensures learnings, memories, and lessons are captured without relying on manual invocation. Need to research hook configuration and session-end event availability.",
+    "notes": "Use Claude Code hooks to automatically invoke /claude-code-skills:review when a session ends. Ensures learnings, memories, and lessons are captured without relying on manual invocation. Need to research hook configuration and session-end event availability.",
     "spec": null,
     "added": "2026-01-27",
     "updated": "2026-01-27",
@@ -1664,8 +1664,8 @@ const FALLBACK_TASKS = [
     "added": "2026-01-27",
     "updated": "2026-01-27",
     "nextSteps": [
-      "Built /dev-org:orient skill with calendar integration",
-      "Built /dev-org:review skill for updating reference layer",
+      "Built /claude-code-skills:orient skill with calendar integration",
+      "Built /claude-code-skills:review skill for updating reference layer",
       "Code reviewed both skills"
     ]
   },
@@ -1762,7 +1762,7 @@ const FALLBACK_TASKS = [
     "nextSteps": [
       "Test all four skills in daily workflow",
       "Complete Happy mobile pairing and test skills from phone",
-      "Document friction points and learnings using /dev-org:review",
+      "Document friction points and learnings using /claude-code-skills:review",
       "Capture at least 3 entries in memories.md or lessons.md from using the system"
     ]
   },

@@ -3,7 +3,7 @@ name: dashboard
 description: Open the backlog dashboard in a browser (starts the local server if needed)
 ---
 
-# /dev-org:dashboard
+# /claude-code-skills:dashboard
 
 **Purpose:** Ensure the dashboard HTTP server is running and open the dashboard in a browser.
 

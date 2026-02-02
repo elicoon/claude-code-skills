@@ -3,7 +3,7 @@ name: review
 description: Use when updating reference layer memories, lessons, preferences, or core identity documentation
 ---
 
-# /dev-org:review
+# /claude-code-skills:review
 
 Update the reference layer with memories, lessons learned, preferences, and the "why" behind decisions.
 
@@ -28,7 +28,7 @@ Use this skill at the end of significant work sessions, project completions, or 
 
 `{REFERENCE_PATH}/lessons/pending-review.md`
 
-Queued items are processed during `/dev-org:eod` (end-of-day wrap-up), not during `/review`.
+Queued items are processed during `/claude-code-skills:eod` (end-of-day wrap-up), not during `/review`.
 
 ### When to Queue vs. Capture Immediately
 
@@ -67,7 +67,7 @@ Check if the user provided specific information with the command:
 
 **Direct mode** (user provided info): The user included specific learnings, memories, or preferences to capture. Proceed to Step 2.
 
-**Interactive mode** (no details provided): The user just invoked `/dev-org:review` without specifics.
+**Interactive mode** (no details provided): The user just invoked `/claude-code-skills:review` without specifics.
 
 **Do NOT start by asking questions.** Instead, analyze the session context and propose learnings:
 
@@ -417,7 +417,7 @@ All file paths in this skill are relative to the dev-org repo root.
 
 ### Example 1: Inference-first session review (the standard flow)
 
-User: `/dev-org:review`
+User: `/claude-code-skills:review`
 
 *Context: Claude and {USER_NAME} just finished setting up dev-org skills. During the session, Claude observed: (1) they built orient skill first, validated it worked, then moved to add skill; (2) {USER_NAME} pushed back on overly prescriptive instructions; (3) {USER_NAME} explicitly said "I've been burned by 'done' claims" when adding verification.*
 
@@ -489,7 +489,7 @@ Response:
 
 ### Example 2: Direct mode with specific input
 
-User: `/dev-org:review` "I realized I work better when I can see my calendar and tasks together. Add that as a preference."
+User: `/claude-code-skills:review` "I realized I work better when I can see my calendar and tasks together. Add that as a preference."
 
 Response:
 > Got it. Let me check the current preferences file...
@@ -529,7 +529,7 @@ User: "Yes"
 
 ### Example 3: When clarifying questions ARE appropriate
 
-User: `/dev-org:review` "The Chrome extension project failed - I want to document why"
+User: `/claude-code-skills:review` "The Chrome extension project failed - I want to document why"
 
 *Context: This references a project from a previous session. Claude doesn't have direct session context, so it needs some information.*
 

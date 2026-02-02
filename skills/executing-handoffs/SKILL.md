@@ -3,7 +3,7 @@ name: executing-handoffs
 description: Use when receiving a handoff document from a previous session — orchestrates execution with aggressive subagent delegation to preserve main-thread context
 ---
 
-# /dev-org:executing-handoffs
+# /claude-code-skills:executing-handoffs
 
 Orchestrate continuation of work from a handoff document. Keeps the main thread lightweight (coordination only) by delegating all substantive work to subagents.
 
@@ -363,7 +363,7 @@ After every 2-3 completed tasks, assess whether the main thread's context is get
 >
 > I recommend we capture progress and create a fresh handoff to continue with a clean context window. This will prevent degradation in the remaining work.
 >
-> Shall I run `/dev-org:handoff` to package what we have done?
+> Shall I run `/claude-code-skills:handoff` to package what we have done?
 
 **User checkpoints (pause and ask):**
 
@@ -380,7 +380,7 @@ After every 2-3 completed tasks, assess whether the main thread's context is get
 
 When all tasks are finished:
 
-1. **Update backlog:** Run `/dev-org:add` to update the relevant backlog task status
+1. **Update backlog:** Run `/claude-code-skills:add` to update the relevant backlog task status
 2. **Archive the handoff:** Rename the input handoff file to add `-archived` suffix
 3. **Verify the archive:** Read the file listing to confirm the rename succeeded
 4. **Offer next steps:**
@@ -396,8 +396,8 @@ When all tasks are finished:
 > - [List anything not completed]
 >
 > Options:
-> 1. **New handoff** - Create a handoff for remaining work (`/dev-org:handoff`)
-> 2. **Review** - Capture learnings from this session (`/dev-org:review`)
+> 1. **New handoff** - Create a handoff for remaining work (`/claude-code-skills:handoff`)
+> 2. **Review** - Capture learnings from this session (`/claude-code-skills:review`)
 > 3. **Done** - All work is complete
 
 ---
@@ -445,7 +445,7 @@ All file paths in this skill are relative to the dev-org repo root unless otherw
 
 ## Files Written
 
-- None directly (subagents write files; main thread updates backlog via `/dev-org:add`)
+- None directly (subagents write files; main thread updates backlog via `/claude-code-skills:add`)
 - Renames handoff file to `-archived` suffix on completion
 
 ---

@@ -3,7 +3,7 @@ name: uat
 description: Generate comprehensive UAT documentation and executable test checklists before implementation
 ---
 
-# /dev-org:uat
+# /claude-code-skills:uat
 
 Generate User Acceptance Testing documentation and executable test checklists. Creates the verification contract that `test-feature` runs against.
 
@@ -28,7 +28,7 @@ When this skill is invoked:
 
 Check if the user specified a feature or plan file:
 
-**With argument:** `/dev-org:uat video-export`
+**With argument:** `/claude-code-skills:uat video-export`
 - Look for matching plan file in `docs/plans/*video-export*.md`
 - Look for matching spec in `backlog/specs/`
 
@@ -229,7 +229,7 @@ Read back both files and confirm they were written correctly.
 
 ### Example 1: UAT for video export feature
 
-User: `/dev-org:uat video-export`
+User: `/claude-code-skills:uat video-export`
 
 > Exploring project to understand test requirements...
 > - Reading `docs/plans/2026-01-30-video-export-plan.md`

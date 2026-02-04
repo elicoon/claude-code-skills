@@ -14,6 +14,13 @@ const path = require('path');
 const LIVING_DOC_PATTERN = 'debug-loop-*.md';
 const CLAUDE_DIR = '.claude';
 
+// Phase order by depth
+const PHASE_ORDER = {
+  'minimal': ['systematic-debug', 'write-tests', 'write-plan', 'implement', 'code-review', 'verify'],
+  'standard': ['systematic-debug', 'write-tests', 'write-plan', 'uat', 'implement', 'code-review', 'update-docs', 'verify'],
+  'full': ['systematic-debug', 'write-tests', 'architecture', 'write-plan', 'uat', 'implement', 'code-review', 'update-docs', 'verify']
+};
+
 // --- Helper Functions ---
 
 /**
@@ -174,8 +181,52 @@ function parseYamlBlock(lines, startIdx, baseIndent) {
               if (arrIndent < nextIndent) break;
 
               if (arrTrimmed.startsWith('- ')) {
-                arr.push(parseYamlValue(arrTrimmed.slice(2).trim()));
-                arrIdx++;
+                // Check if this is "- key: value" (object item) or "- value" (scalar)
+                const afterDash = arrTrimmed.slice(2).trim();
+                const colonMatch = afterDash.match(/^(\w+):\s*(.*)/);
+
+                if (colonMatch) {
+                  // Object item - parse inline key:value and any following indented lines
+                  const objItem = {};
+                  const firstKey = colonMatch[1];
+                  const firstValue = colonMatch[2].trim();
+                  objItem[firstKey] = firstValue ? parseYamlValue(firstValue) : null;
+
+                  arrIdx++;
+
+                  // Parse any continuation lines (more indented than the dash)
+                  const dashIndent = arrIndent + 2; // After "- "
+                  while (arrIdx < lines.length) {
+                    const contLine = lines[arrIdx];
+                    const contTrimmed = contLine.trim();
+                    const contIndent = getIndent(contLine);
+
+                    if (!contTrimmed || contTrimmed.startsWith('#')) {
+                      arrIdx++;
+                      continue;
+                    }
+
+                    // If dedented to array level or less, we're done with this object
+                    if (contIndent <= arrIndent) break;
+
+                    // If it's another key:value at object level
+                    const contColonMatch = contTrimmed.match(/^(\w+):\s*(.*)/);
+                    if (contColonMatch) {
+                      const contKey = contColonMatch[1];
+                      const contValue = contColonMatch[2].trim();
+                      objItem[contKey] = contValue ? parseYamlValue(contValue) : null;
+                      arrIdx++;
+                    } else {
+                      arrIdx++;
+                    }
+                  }
+
+                  arr.push(objItem);
+                } else {
+                  // Simple scalar value
+                  arr.push(parseYamlValue(afterDash));
+                  arrIdx++;
+                }
               } else {
                 break;
               }
@@ -416,23 +467,327 @@ function validateExitCriteria(livingDoc, cwd) {
 }
 
 /**
+ * Serializes a value to YAML format.
+ * @param {*} value - Value to serialize
+ * @param {number} indent - Current indentation level
+ * @returns {string} - YAML string
+ */
+function serializeYamlValue(value, indent = 0) {
+  const spaces = '  '.repeat(indent);
+
+  if (value === null || value === undefined) {
+    return 'null';
+  }
+
+  if (typeof value === 'boolean') {
+    return value ? 'true' : 'false';
+  }
+
+  if (typeof value === 'number') {
+    return String(value);
+  }
+
+  if (typeof value === 'string') {
+    // Check if string needs quoting
+    if (value === '' ||
+        value.includes(':') ||
+        value.includes('#') ||
+        value.includes('\n') ||
+        value.startsWith(' ') ||
+        value.endsWith(' ') ||
+        /^[{}\[\],&*#?|\-<>=!%@`]/.test(value) ||
+        value === 'true' || value === 'false' ||
+        value === 'null' || value === '~' ||
+        /^-?\d+(\.\d+)?$/.test(value)) {
+      return `"${value.replace(/"/g, '\\"')}"`;
+    }
+    return value;
+  }
+
+  if (Array.isArray(value)) {
+    if (value.length === 0) {
+      return '[]';
+    }
+
+    // Check if all elements are simple (scalars)
+    const allSimple = value.every(v =>
+      v === null || typeof v === 'string' || typeof v === 'number' || typeof v === 'boolean'
+    );
+
+    // Use inline format for short simple arrays
+    if (allSimple && value.length <= 3) {
+      const items = value.map(v => serializeYamlValue(v, 0));
+      const inline = `[${items.join(', ')}]`;
+      if (inline.length <= 60) {
+        return inline;
+      }
+    }
+
+    // Use block format for arrays
+    const lines = [];
+    for (const item of value) {
+      if (typeof item === 'object' && item !== null && !Array.isArray(item)) {
+        // Object in array - use inline-ish format for first key, indented for rest
+        const keys = Object.keys(item);
+        if (keys.length === 0) {
+          lines.push(`${spaces}- {}`);
+        } else {
+          const firstKey = keys[0];
+          const firstValue = serializeYamlValue(item[firstKey], 0);
+          lines.push(`${spaces}- ${firstKey}: ${firstValue}`);
+          for (let i = 1; i < keys.length; i++) {
+            const key = keys[i];
+            const val = serializeYamlValue(item[key], 0);
+            lines.push(`${spaces}  ${key}: ${val}`);
+          }
+        }
+      } else {
+        lines.push(`${spaces}- ${serializeYamlValue(item, 0)}`);
+      }
+    }
+    return '\n' + lines.join('\n');
+  }
+
+  if (typeof value === 'object') {
+    const keys = Object.keys(value);
+    if (keys.length === 0) {
+      return '{}';
+    }
+
+    const lines = [];
+    for (const key of keys) {
+      const val = value[key];
+      const serialized = serializeYamlValue(val, indent + 1);
+
+      if (typeof val === 'object' && val !== null && !Array.isArray(val) && Object.keys(val).length > 0) {
+        // Nested object - put on next line
+        lines.push(`${spaces}${key}:`);
+        lines.push(serialized);
+      } else if (Array.isArray(val) && val.length > 0 && serialized.startsWith('\n')) {
+        // Block array - header then items
+        lines.push(`${spaces}${key}:${serialized}`);
+      } else {
+        lines.push(`${spaces}${key}: ${serialized}`);
+      }
+    }
+    return lines.join('\n');
+  }
+
+  return String(value);
+}
+
+/**
+ * Serializes a living doc object to YAML frontmatter format.
+ * @param {object} livingDoc - The living doc object
+ * @returns {string} - YAML string (without --- delimiters)
+ */
+function serializeToYaml(livingDoc) {
+  const lines = [];
+
+  // Define the order and grouping of keys for readability
+  const keyGroups = [
+    { comment: '# Identity', keys: ['bug_slug', 'bug_file', 'project_root', 'started_at', 'depth', 'worktree'] },
+    { comment: '# Loop Control', keys: ['active', 'phase', 'phase_iteration', 'max_phase_iterations', 'total_iterations'] },
+    { comment: '# Exit Criteria', keys: ['exit_criteria'] },
+    { comment: '# Human Checkpoints', keys: ['awaiting_human_review', 'human_checkpoints'] },
+    { comment: '# Artifact Paths', keys: ['paths'] },
+    { comment: '# Files Modified', keys: ['files_modified'] },
+    { comment: '# Decisions Made', keys: ['decisions'] },
+    { comment: '# Phase History', keys: ['history'] }
+  ];
+
+  const usedKeys = new Set();
+
+  for (const group of keyGroups) {
+    let groupHasContent = false;
+    const groupLines = [];
+
+    for (const key of group.keys) {
+      if (key in livingDoc) {
+        usedKeys.add(key);
+        const value = livingDoc[key];
+        const serialized = serializeYamlValue(value, 0);
+
+        if (typeof value === 'object' && value !== null && !Array.isArray(value) && Object.keys(value).length > 0) {
+          // Nested object
+          groupLines.push(`${key}:`);
+          groupLines.push(serializeYamlValue(value, 1));
+        } else if (Array.isArray(value) && value.length > 0 && serialized.startsWith('\n')) {
+          // Block array
+          groupLines.push(`${key}:${serialized}`);
+        } else {
+          groupLines.push(`${key}: ${serialized}`);
+        }
+        groupHasContent = true;
+      }
+    }
+
+    if (groupHasContent) {
+      if (lines.length > 0) {
+        lines.push('');
+      }
+      lines.push(group.comment);
+      lines.push(...groupLines);
+    }
+  }
+
+  // Add any remaining keys not in the groups
+  const remainingKeys = Object.keys(livingDoc).filter(k => !usedKeys.has(k));
+  if (remainingKeys.length > 0) {
+    lines.push('');
+    lines.push('# Other');
+    for (const key of remainingKeys) {
+      const value = livingDoc[key];
+      const serialized = serializeYamlValue(value, 0);
+      if (typeof value === 'object' && value !== null && !Array.isArray(value) && Object.keys(value).length > 0) {
+        lines.push(`${key}:`);
+        lines.push(serializeYamlValue(value, 1));
+      } else if (Array.isArray(value) && value.length > 0 && serialized.startsWith('\n')) {
+        lines.push(`${key}:${serialized}`);
+      } else {
+        lines.push(`${key}: ${serialized}`);
+      }
+    }
+  }
+
+  return lines.join('\n') + '\n';
+}
+
+/**
+ * Writes the living doc back to file, preserving content after frontmatter.
+ * @param {string} filePath - Path to the living doc
+ * @param {object} livingDoc - Updated living doc object
+ */
+function writeLivingDoc(filePath, livingDoc) {
+  // Read existing file to preserve content after frontmatter
+  const content = fs.readFileSync(filePath, 'utf-8');
+
+  // Split on frontmatter delimiters
+  const frontmatterMatch = content.match(/^---\r?\n[\s\S]*?\r?\n---/);
+  const bodyAfterFrontmatter = frontmatterMatch
+    ? content.slice(frontmatterMatch[0].length)
+    : '\n\n## Current Phase Instructions\n\n## Phase Log\n';
+
+  // Serialize livingDoc back to YAML
+  const newFrontmatter = serializeToYaml(livingDoc);
+  const newContent = `---\n${newFrontmatter}---${bodyAfterFrontmatter}`;
+
+  fs.writeFileSync(filePath, newContent);
+}
+
+/**
+ * Checks if a human checkpoint is required after the given phase.
+ * @param {object} livingDoc - Parsed frontmatter from living doc
+ * @param {string} phase - The phase that just completed
+ * @returns {{required: boolean, reason: string}}
+ */
+function checkHumanCheckpoint(livingDoc, phase) {
+  const checkpoints = livingDoc.human_checkpoints || [];
+
+  for (const checkpoint of checkpoints) {
+    if (checkpoint.after === phase) {
+      // Check condition if present
+      if (checkpoint.condition) {
+        // Simple condition parser for "depth == value"
+        const condMatch = checkpoint.condition.match(/depth\s*==\s*(\w+)/);
+        if (condMatch) {
+          const requiredDepth = condMatch[1];
+          if (livingDoc.depth !== requiredDepth) {
+            continue; // Condition not met, skip this checkpoint
+          }
+        }
+      }
+      return { required: true, reason: checkpoint.reason || 'Human review required' };
+    }
+  }
+
+  return { required: false, reason: '' };
+}
+
+/**
  * Transitions the living doc to the next phase.
- * PLACEHOLDER - will be implemented in Task 8
+ * Updates phase, resets iteration, records history, and checks for human checkpoints.
  * @param {string} livingDocPath - Path to the living doc
  * @param {object} livingDoc - Parsed frontmatter from living doc
  */
 function transitionPhase(livingDocPath, livingDoc) {
-  // PLACEHOLDER - will be implemented in Task 8
+  const currentPhase = livingDoc.phase;
+  const depth = livingDoc.depth || 'standard';
+  const phaseOrder = PHASE_ORDER[depth] || PHASE_ORDER['standard'];
+
+  // Find current phase index
+  const currentIndex = phaseOrder.indexOf(currentPhase);
+
+  // Record history entry for completed phase
+  const historyEntry = {
+    phase: currentPhase,
+    started: livingDoc.phase_started || livingDoc.started_at,
+    completed: new Date().toISOString(),
+    iterations: livingDoc.phase_iteration || 1,
+    outcome: 'completed'
+  };
+
+  if (!livingDoc.history) {
+    livingDoc.history = [];
+  }
+  livingDoc.history.push(historyEntry);
+
+  // Check for human checkpoint after current phase
+  const checkpoint = checkHumanCheckpoint(livingDoc, currentPhase);
+  if (checkpoint.required) {
+    livingDoc.awaiting_human_review = true;
+    livingDoc.human_review_reason = checkpoint.reason;
+    writeLivingDoc(livingDocPath, livingDoc);
+    return;
+  }
+
+  // Determine next phase
+  if (currentIndex === -1 || currentIndex >= phaseOrder.length - 1) {
+    // Last phase or unknown phase - mark as complete
+    livingDoc.active = false;
+    livingDoc.phase = 'complete';
+    livingDoc.completed_at = new Date().toISOString();
+  } else {
+    // Move to next phase
+    livingDoc.phase = phaseOrder[currentIndex + 1];
+    livingDoc.phase_iteration = 1;
+    livingDoc.phase_started = new Date().toISOString();
+  }
+
+  // Increment total iterations
+  livingDoc.total_iterations = (livingDoc.total_iterations || 0) + 1;
+
+  writeLivingDoc(livingDocPath, livingDoc);
 }
 
 /**
  * Increments the phase_iteration counter in the living doc.
- * PLACEHOLDER - will be implemented in Task 8
+ * Checks for max iterations and sets stalled flag if exceeded.
  * @param {string} livingDocPath - Path to the living doc
  * @param {object} livingDoc - Parsed frontmatter from living doc
+ * @returns {{stalled: boolean, reason: string}}
  */
 function incrementIteration(livingDocPath, livingDoc) {
-  // PLACEHOLDER - will be implemented in Task 8
+  const maxIterations = livingDoc.max_phase_iterations || 5;
+
+  livingDoc.phase_iteration = (livingDoc.phase_iteration || 1) + 1;
+  livingDoc.total_iterations = (livingDoc.total_iterations || 1) + 1;
+
+  // Check if we've exceeded max iterations for this phase
+  if (livingDoc.phase_iteration > maxIterations) {
+    livingDoc.stalled = true;
+    livingDoc.stalled_reason = `Phase ${livingDoc.phase} exceeded max iterations (${maxIterations})`;
+    livingDoc.awaiting_human_review = true;
+    livingDoc.human_review_reason = `Stalled: ${livingDoc.stalled_reason}`;
+    writeLivingDoc(livingDocPath, livingDoc);
+    return {
+      stalled: true,
+      reason: livingDoc.stalled_reason
+    };
+  }
+
+  writeLivingDoc(livingDocPath, livingDoc);
+  return { stalled: false, reason: '' };
 }
 
 /**
@@ -498,7 +853,14 @@ async function main() {
   const validation = validateExitCriteria(livingDoc, cwd);
 
   if (!validation.passed) {
-    incrementIteration(livingDocPath, livingDoc);
+    const iterResult = incrementIteration(livingDocPath, livingDoc);
+    if (iterResult.stalled) {
+      outputBlock(
+        `Phase ${livingDoc.phase} stalled`,
+        `SYSTEM: Debug loop STALLED. ${iterResult.reason}. Human intervention required to either adjust approach or reset iteration count.`
+      );
+      return;
+    }
     outputBlock(
       `Phase ${livingDoc.phase} criteria not met`,
       `SYSTEM: Continue working on ${livingDoc.phase}. ${validation.reason}`
@@ -507,10 +869,11 @@ async function main() {
   }
 
   // Criteria met - transition
+  const completedPhase = livingDoc.phase;
   transitionPhase(livingDocPath, livingDoc);
   outputBlock(
     'Phase complete, transitioning',
-    `SYSTEM: Phase ${livingDoc.phase} complete. Continuing to next phase.`
+    `SYSTEM: Phase ${completedPhase} complete. Continuing to ${livingDoc.phase}.`
   );
 }
 

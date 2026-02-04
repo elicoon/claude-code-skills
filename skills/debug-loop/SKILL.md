@@ -697,6 +697,32 @@ Claude: **Debug Loop Status**
 
 ---
 
+## Hook Installation
+
+The debug-loop skill uses a Stop hook to enforce phase transitions and re-inject context. To enable this:
+
+Add to your `~/.claude/settings.json` under `hooks.Stop`:
+
+```json
+{
+  "hooks": [
+    {
+      "type": "command",
+      "command": "node c:/Users/Eli/projects/claude-code-skills/hooks/debug-loop-stop.js",
+      "timeout": 30
+    }
+  ]
+}
+```
+
+The hook:
+- Detects active debug loops via `.claude/debug-loop-*.md`
+- Validates phase exit criteria
+- Re-injects phase prompts if criteria not met
+- Blocks if awaiting human review
+
+---
+
 ## Troubleshooting
 
 ### "No active debug loop found"

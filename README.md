@@ -56,6 +56,7 @@ claude plugin add elicoon/claude-code-skills
 | [/test-feature](skills/test-feature/) | Structured end-to-end feature testing. Executes tests with actual output, reports results, creates bug tasks for failures. |
 | [/user-test](skills/user-test/) | Hands-free testing with auto-capture. Records screen + audio, captures console errors, creates bug tasks from verbal descriptions. |
 | [/uat](skills/uat/) | Generate UAT documentation and test checklists before implementation. Creates verification contracts across 7 test categories. |
+| [/debug-loop](skills/debug-loop/) | Deterministic debugging workflow with living document orchestration. Serial bug fixing through phases with human checkpoints. |
 
 ### Personal OS / Workflow Management
 
@@ -95,7 +96,8 @@ claude-code-skills/
 │   ├── retro/           # Failure analysis
 │   ├── handoff/         # Session continuity
 │   ├── executing-handoffs/
-│   └── dashboard/       # Visual backlog
+│   ├── dashboard/       # Visual backlog
+│   └── debug-loop/      # Deterministic debugging
 └── README.md
 ```
 

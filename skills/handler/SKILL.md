@@ -523,7 +523,49 @@ If no work could be dispatched (everything blocked or starving and needs user in
 
 ---
 
-[GUARDRAILS PLACEHOLDER]
+## Guardrails
+
+### From Traffic-Control Postmortem
+
+These rules exist because a previous project (traffic-control, Jan 2026) failed catastrophically:
+
+1. **No API keys** — All work through Claude Code CLI on subscription. Never use Agent SDK or `ANTHROPIC_API_KEY`.
+2. **No premature infrastructure** — Markdown files and skills only. No databases, no web services, no schedulers.
+3. **Pre-flight checks** — Verify task queue contents and budget before every dispatch. Never dispatch against stale or test data.
+4. **Priority confirmation** — Don't spend significant budget without confirmed priorities. If stale (>7 days), re-confirm first.
+5. **Circuit breaker** — Code-review → debug-loop cycle caps at 3 rounds per issue. Escalate to handler after that.
+6. **Budget pacing** — Distribute usage across the week. Don't burn everything on day 1.
+7. **Start small** — 2-3 projects max initially. Scale once dispatch → execute → report loop is reliable.
+
+### Autonomy Model
+
+**Auto-dispatch (no approval needed):**
+- Research and investigation tasks
+- Backlog grooming (close stale tasks, update statuses)
+- Test runs and code review on existing PRs
+- Re-running failed CI checks
+- Generating research/grooming tasks for starving projects
+
+**Requires approval:**
+- New feature implementation
+- Architectural decisions
+- Merging PRs
+- Priority rebalancing
+- Any single dispatch estimated at >10% of weekly budget
+- Scoping new feature work for a starving project
+
+### Verification Gate
+
+**No PR is created without passing this sequence:**
+
+1. Worker runs `/code-review` on implementation
+2. If issues found → `/debug-loop` on each issue (not quick fixes)
+3. Re-run `/code-review` — if still failing after 3 rounds, write blocker and stop
+4. Run `/test-feature` — capture actual output as evidence
+5. Create PR with test evidence in description
+6. Worker writes completion report to `docs/handler-results/`
+
+**The handler never merges a PR without reviewing the test evidence in the completion report.**
 
 ---
 

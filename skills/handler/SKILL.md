@@ -420,8 +420,9 @@ For each dispatch file, determine execution method:
 **If tmux is available** (always-on server):
 ```bash
 tmux new-window -d -n "<project>" -c "<repo-path>" \
-  "claude 'You are a worker session dispatched by the handler. Read and execute {DEV_ORG_PATH}/docs/handler-dispatches/YYYY-MM-DD-<slug>.md — follow the worker contract exactly.'"
+  "claude 'You are a worker session dispatched by the handler. Read and execute <absolute-path-to-dev-org>/docs/handler-dispatches/YYYY-MM-DD-<slug>.md — follow the worker contract exactly.'"
 ```
+**IMPORTANT:** Replace `<absolute-path-to-dev-org>` with the resolved `{DEV_ORG_PATH}` value (e.g., `C:\Users\Eli\projects\dev-org` or `/home/eli/projects/dev-org`). Do not leave path variables in the tmux command.
 
 **If tmux is not available** (local machine):
 Present copy-paste commands to the user:
@@ -441,6 +442,11 @@ After dispatching, update `{DEV_ORG_PATH}/docs/handler-state.md`:
 - Clear any completed/resolved items from previous check-in
 - Move completed dispatches to Check-in Log
 - Update Last Check-in timestamp
+
+**Then commit the state file** so changes persist if the session ends unexpectedly:
+```bash
+git add docs/handler-state.md && git commit -m "handler: update state after dispatch"
+```
 
 ---
 

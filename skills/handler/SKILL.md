@@ -103,7 +103,90 @@ Check for files in `{DEV_ORG_PATH}/docs/handler-blockers/`. For each:
 
 ---
 
-[PHASE 2 PLACEHOLDER]
+## Phase 2: Analyze — Diagnose Pipeline Health
+
+Using the data gathered in Phase 1, evaluate the following. Do this silently — output comes in Phase 4.
+
+### Step 2.1: Identify Starving Projects
+
+A project is **starving** if:
+- It is an active project (has in-progress or ready tasks in backlog, or recent commits)
+- AND it has fewer than 2 tasks that can be executed autonomously (without user input)
+
+For starving projects, determine:
+- Can the handler generate autonomous work? (research spikes, test coverage, documentation, grooming)
+- Or does it need user input to scope the next batch of work?
+
+### Step 2.2: Identify Blocked Work
+
+Work is **blocked** if:
+- A task in the backlog has status "blocked" or mentions a blocker
+- A PR has failing checks or is waiting on review
+- A worker wrote a blocker file
+- A repo has uncommitted work older than 3 days (possible abandoned WIP)
+
+For each blocker, classify:
+- **Auto-resolvable** — handler can fix it (re-run CI, merge a dependency PR, close stale items)
+- **Needs user input** — architectural decision, external dependency, priority call
+
+### Step 2.3: Check Priority Alignment
+
+Compare current budget allocation (from handler state) against stated priorities:
+- Read priority alignment section from handler state
+- If priorities haven't been confirmed in 7+ days, flag for re-confirmation BEFORE dispatching any new work
+- If budget allocation has drifted >20% from priority weights, flag for rebalancing
+
+### Step 2.4: Check Budget Pacing
+
+Calculate:
+- What % of weekly budget is used (from check-in log)
+- What % of the week has elapsed
+- Is pacing on track, over, or under?
+
+If under-paced (budget available but not being used):
+- Identify lower-priority work that can absorb excess budget
+- Recommend backfilling with research, testing, or grooming tasks
+
+If over-paced:
+- Flag which projects are consuming disproportionate budget
+- Recommend throttling or pausing lower-priority dispatches
+
+### Step 2.5: Build Dispatch Queue
+
+Based on the analysis, build a prioritized list of work to dispatch:
+
+For each item, determine:
+- **Project** — which repo
+- **Task** — what to do
+- **Skill chain** — which skills the worker should use (see Skill Routing table)
+- **Auto-dispatch?** — can this launch without approval?
+- **Estimated budget** — rough % of weekly allocation
+
+**Skill Routing Table:**
+
+| Work Type | Skill Chain | Creates PR? |
+|-----------|------------|-------------|
+| New feature | `/write-plan` → `/uat` → `/loop`(feature) → `/code-review` → if issues: `/debug-loop` → `/test-feature` | Yes |
+| Bug fix | `/debug-loop --depth minimal` → `/code-review` → if issues: `/debug-loop` → `/test-feature` | Yes |
+| Complex bug | `/debug-loop --depth standard` → `/code-review` → if issues: `/debug-loop` → `/test-feature` | Yes |
+| Refactor | `/loop`(refactor) → `/code-review` → if issues: `/debug-loop` → `/test-feature` | Yes |
+| Research | `/loop`(investigation) → write findings to `docs/research/` | No |
+| Backlog grooming | `/add` to update tasks, close stale items | No |
+
+**Auto-dispatch rules** (no approval needed):
+- Research and investigation tasks
+- Backlog grooming
+- Test runs and code review on existing PRs
+- Re-running failed CI
+- Generating tasks for starving projects (research/grooming scope only)
+
+**Requires approval:**
+- New feature implementation
+- Architectural decisions
+- Merging PRs
+- Priority rebalancing
+- Any single dispatch estimated at >10% of weekly budget
+- Scoping new feature work for a starving project
 
 ---
 

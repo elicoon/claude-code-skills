@@ -1,0 +1,36 @@
+#!/bin/sh
+# Sync skills from this repo to Claude Code's skills cache.
+# Run after creating or renaming skills.
+#
+# Usage: ./sync-skills.sh
+
+SKILLS_SRC="$(cd "$(dirname "$0")/skills" && pwd)"
+SKILLS_CACHE="$HOME/.claude/skills"
+PLUGINS_JSON="$HOME/.claude/plugins/installed_plugins.json"
+
+if [ ! -d "$SKILLS_CACHE" ]; then
+  echo "Error: Skills cache not found at $SKILLS_CACHE"
+  exit 1
+fi
+
+added=0
+for skill_dir in "$SKILLS_SRC"/*/; do
+  skill_name=$(basename "$skill_dir")
+  if [ ! -d "$SKILLS_CACHE/$skill_name" ]; then
+    cp -r "$skill_dir" "$SKILLS_CACHE/$skill_name"
+    echo "  + $skill_name"
+    added=$((added + 1))
+  fi
+done
+
+if [ "$added" -eq 0 ]; then
+  echo "Skills cache is up to date."
+else
+  echo "Synced $added new skill(s) to cache."
+  # Bump lastUpdated in installed_plugins.json so Claude Code re-scans
+  NOW=$(date -u +"%Y-%m-%dT%H:%M:%S.000Z")
+  if command -v sed >/dev/null 2>&1; then
+    sed -i.bak "s/\"lastUpdated\": \"[^\"]*\"/\"lastUpdated\": \"$NOW\"/" "$PLUGINS_JSON" 2>/dev/null
+    rm -f "$PLUGINS_JSON.bak"
+  fi
+fi

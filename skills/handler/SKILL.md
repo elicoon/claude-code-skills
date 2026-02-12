@@ -49,7 +49,57 @@ Also resolve:
 
 ---
 
-[PHASE 1 PLACEHOLDER]
+## Phase 1: Scan — Gather State
+
+Read all sources silently. Do not output raw file contents to the user.
+
+### Step 1.1: Read Handler State
+
+Read `{DEV_ORG_PATH}/docs/handler-state.md`:
+- If it exists: parse active dispatches, pending decisions, budget tracking, priority alignment, check-in log
+- If it doesn't exist: this is the first run. Skip to the First Run section above, complete it, then return here.
+
+### Step 1.2: Read Dev-Org Backlog
+
+Read all files in `{BACKLOG_PATH}/*.md`. For each task, extract:
+- Title, status, priority, blockers, next steps
+- Group by: in-progress, blocked, ready (has next steps but not started), done
+
+Also read:
+- `{REFERENCE_PATH}/identity/why.md` — for priority calibration
+- `{REFERENCE_PATH}/identity/constraints.md` — for time/resource awareness
+- `{REFERENCE_PATH}/identity/preferences.md` — for interaction style
+- `{REFERENCE_PATH}/lessons/lessons.md` — for behavioral guardrails
+
+### Step 1.3: Scan Local Repos
+
+For each directory in `{PROJECTS_DIR}/`:
+- Run `git -C <repo> log --oneline -1 --format="%ar - %s"` to get last commit age and message
+- Run `git -C <repo> status --porcelain` to detect uncommitted work
+- Run `git -C <repo> branch --list` to detect open branches
+- Skip non-git directories silently
+
+Build a table:
+| Repo | Last Commit | Uncommitted Work | Open Branches | Days Since Activity |
+
+### Step 1.4: Scan GitHub
+
+Run `gh repo list --limit 50 --json name,pushedAt,description` to get all repos.
+
+For repos with recent activity (pushed in last 14 days), also check:
+- `gh pr list --repo <owner>/<repo> --state open --json number,title,createdAt,isDraft`
+- Note any PRs with failing checks
+
+### Step 1.5: Read Worker Results
+
+Check for files in `{DEV_ORG_PATH}/docs/handler-results/`. For each:
+- Parse completion report (commit hash, PR number, test results, blockers)
+- Match to active dispatches in handler state
+- Mark matched dispatches as complete
+
+Check for files in `{DEV_ORG_PATH}/docs/handler-blockers/`. For each:
+- Parse blocker description and proposed resolution
+- Flag for user attention or auto-resolution
 
 ---
 

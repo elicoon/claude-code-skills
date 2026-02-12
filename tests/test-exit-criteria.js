@@ -38,7 +38,9 @@ module.exports = {
   validateDebugFindings,
   validateReproductionTest,
   validateImplementation,
-  validateArtifactExists
+  validateArtifactExists,
+  serializeYamlValue,
+  serializeToYaml
 };
 `;
 
@@ -49,7 +51,9 @@ const {
   parseYamlBlock,
   parseLivingDoc,
   validateExitCriteria,
-  hasNonEmptySection
+  hasNonEmptySection,
+  serializeYamlValue,
+  serializeToYaml
 } = require(tempFile);
 
 // Test helpers
@@ -288,6 +292,100 @@ test('hasNonEmptySection rejects placeholder content', () => {
 
   fs.writeFileSync(testFile, '## Root Cause\n\nActual content here');
   assertEqual(hasNonEmptySection(testFile, 'Root Cause'), true);
+});
+
+console.log('\n--- YAML Serialization Tests ---\n');
+
+test('serializeYamlValue handles scalars', () => {
+  assertEqual(serializeYamlValue(null), 'null');
+  assertEqual(serializeYamlValue(true), 'true');
+  assertEqual(serializeYamlValue(false), 'false');
+  assertEqual(serializeYamlValue(42), '42');
+  assertEqual(serializeYamlValue('hello'), 'hello');
+});
+
+test('serializeYamlValue quotes strings that need it', () => {
+  // Strings containing colons, starting with special chars, or matching bool/null
+  const colonStr = serializeYamlValue('key: value');
+  assertEqual(colonStr.startsWith('"'), true, 'Should quote strings with colons');
+  const boolStr = serializeYamlValue('true');
+  assertEqual(boolStr.startsWith('"'), true, 'Should quote "true" as string');
+  const nullStr = serializeYamlValue('null');
+  assertEqual(nullStr.startsWith('"'), true, 'Should quote "null" as string');
+});
+
+test('serializeYamlValue handles empty array', () => {
+  assertEqual(serializeYamlValue([]), '[]');
+});
+
+test('serializeYamlValue handles short inline array', () => {
+  const result = serializeYamlValue(['a', 'b', 'c']);
+  assertEqual(result, '[a, b, c]');
+});
+
+test('serializeYamlValue handles empty object', () => {
+  assertEqual(serializeYamlValue({}), '{}');
+});
+
+test('serializeToYaml round-trip: flat structure', () => {
+  const input = {
+    bug_slug: 'test-bug',
+    active: true,
+    phase: 'systematic-debug',
+    phase_iteration: 1
+  };
+  const yaml = serializeToYaml(input);
+  const lines = yaml.split('\n').filter(l => l.trim() && !l.trim().startsWith('#'));
+  const reparsed = parseYamlBlock(lines, 0, 0).result;
+  assertEqual(reparsed.bug_slug, input.bug_slug);
+  assertEqual(reparsed.active, input.active);
+  assertEqual(reparsed.phase, input.phase);
+  assertEqual(reparsed.phase_iteration, input.phase_iteration);
+});
+
+test('serializeToYaml round-trip: nested objects', () => {
+  const input = {
+    bug_slug: 'nested-test',
+    active: true,
+    phase: 'write-tests',
+    paths: {
+      living_doc: '.claude/debug-loop-test.md',
+      bug_task: 'backlog/tasks/bug-test.md',
+      debug_findings: 'docs/plans/debug.md'
+    }
+  };
+  const yaml = serializeToYaml(input);
+  const lines = yaml.split('\n').filter(l => l.trim() && !l.trim().startsWith('#'));
+  const reparsed = parseYamlBlock(lines, 0, 0).result;
+  assertEqual(reparsed.paths.living_doc, input.paths.living_doc);
+  assertEqual(reparsed.paths.bug_task, input.paths.bug_task);
+  assertEqual(reparsed.paths.debug_findings, input.paths.debug_findings);
+});
+
+test('serializeToYaml round-trip: arrays of objects via living doc file', () => {
+  const input = {
+    bug_slug: 'array-test',
+    active: true,
+    phase: 'verify',
+    phase_iteration: 1,
+    history: [
+      { phase: 'systematic-debug', completed: '2026-01-01T00:00:00Z', outcome: 'completed' },
+      { phase: 'write-tests', completed: '2026-01-01T01:00:00Z', outcome: 'completed' }
+    ]
+  };
+  // Write as living doc (with --- delimiters) and reparse
+  const roundTripPath = path.join(testDir, '.claude', 'debug-loop-roundtrip.md');
+  const yaml = serializeToYaml(input);
+  fs.writeFileSync(roundTripPath, `---\n${yaml}---\n\n## Current Phase\n`);
+  const reparsed = parseLivingDoc(roundTripPath);
+  assertEqual(reparsed.bug_slug, 'array-test');
+  assertEqual(reparsed.active, true);
+  assertEqual(reparsed.phase, 'verify');
+  assertEqual(Array.isArray(reparsed.history), true, 'history should be an array');
+  assertEqual(reparsed.history.length, 2);
+  assertEqual(reparsed.history[0].phase, 'systematic-debug');
+  assertEqual(reparsed.history[0].outcome, 'completed');
+  assertEqual(reparsed.history[1].phase, 'write-tests');
 });
 
 // Cleanup

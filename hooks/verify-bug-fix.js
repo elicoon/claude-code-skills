@@ -34,7 +34,9 @@ process.stdin.on('end', () => {
     const filePath = data.tool_input?.file_path || '';
     const newString = data.tool_input?.new_string || '';
 
-    const isBugFile = filePath.includes('/bugs/') || filePath.includes('\\bugs\\');
+    // Match both /bugs/ directories and backlog/tasks/bug-*.md files (debug-loop convention)
+    const isBugFile = filePath.includes('/bugs/') || filePath.includes('\\bugs\\') ||
+                      /[/\\]backlog[/\\]tasks[/\\]bug-/.test(filePath);
     const isMarkingFixed = /Status:\s*Fixed/i.test(newString) ||
                            /\*\*Status:\*\*\s*Fixed/i.test(newString);
 
@@ -49,11 +51,17 @@ process.stdin.on('end', () => {
       }
 
       // Look for test file
+      // Strip "bug-" prefix for test file lookup (bug-foo-bar.md → foo-bar.spec.ts)
+      const testSlug = bugName.startsWith('bug-') ? bugName.slice(4) : bugName;
       const testPaths = [
         path.join(projectRoot, 'tests', 'bugs', `${bugName}.spec.ts`),
         path.join(projectRoot, 'tests', 'bugs', `${bugName}.spec.js`),
+        path.join(projectRoot, 'tests', 'bugs', `${testSlug}.spec.ts`),
+        path.join(projectRoot, 'tests', 'bugs', `${testSlug}.spec.js`),
         path.join(projectRoot, 'e2e', 'bugs', `${bugName}.spec.ts`),
+        path.join(projectRoot, 'e2e', 'bugs', `${testSlug}.spec.ts`),
         path.join(projectRoot, 'apps', 'browser', 'tests', 'bugs', `${bugName}.spec.ts`),
+        path.join(projectRoot, 'apps', 'browser', 'tests', 'bugs', `${testSlug}.spec.ts`),
       ];
 
       let testFile = null;

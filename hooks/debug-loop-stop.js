@@ -90,6 +90,23 @@ function getIndent(line) {
 /**
  * Parses YAML content with support for nested structures.
  * Handles objects, arrays (both inline and block), and scalars.
+ *
+ * SUPPORTED YAML SUBSET:
+ * - Key: value pairs (string, number, boolean, null)
+ * - Nested objects (indentation-based)
+ * - Block arrays (- item) including arrays of objects
+ * - Inline arrays ([item1, item2])
+ * - Quoted strings (single and double)
+ * - Comments (#)
+ *
+ * NOT SUPPORTED (will silently fail or produce incorrect results):
+ * - Multi-line strings (|, >, |-, >-)
+ * - Flow mappings ({key: value})
+ * - Anchors and aliases (&anchor, *alias)
+ * - Tags (!!type)
+ * - Complex keys (? key)
+ * - Merge keys (<<)
+ *
  * @param {string[]} lines - Array of lines to parse
  * @param {number} startIdx - Starting line index
  * @param {number} baseIndent - Base indentation level
@@ -609,12 +626,12 @@ function serializeToYaml(livingDoc) {
         const serialized = serializeYamlValue(value, 0);
 
         if (typeof value === 'object' && value !== null && !Array.isArray(value) && Object.keys(value).length > 0) {
-          // Nested object
+          // Nested object — re-serialize at indent 1 for proper nesting
           groupLines.push(`${key}:`);
           groupLines.push(serializeYamlValue(value, 1));
         } else if (Array.isArray(value) && value.length > 0 && serialized.startsWith('\n')) {
-          // Block array
-          groupLines.push(`${key}:${serialized}`);
+          // Block array — re-serialize at indent 1 so items are indented under the key
+          groupLines.push(`${key}:${serializeYamlValue(value, 1)}`);
         } else {
           groupLines.push(`${key}: ${serialized}`);
         }
@@ -643,7 +660,7 @@ function serializeToYaml(livingDoc) {
         lines.push(`${key}:`);
         lines.push(serializeYamlValue(value, 1));
       } else if (Array.isArray(value) && value.length > 0 && serialized.startsWith('\n')) {
-        lines.push(`${key}:${serialized}`);
+        lines.push(`${key}:${serializeYamlValue(value, 1)}`);
       } else {
         lines.push(`${key}: ${serialized}`);
       }
@@ -871,10 +888,18 @@ async function main() {
   // Criteria met - transition
   const completedPhase = livingDoc.phase;
   transitionPhase(livingDocPath, livingDoc);
-  outputBlock(
-    'Phase complete, transitioning',
-    `SYSTEM: Phase ${completedPhase} complete. Continuing to ${livingDoc.phase}.`
-  );
+
+  if (livingDoc.awaiting_human_review) {
+    outputBlock(
+      'Phase complete, awaiting review',
+      `SYSTEM: Phase ${completedPhase} complete. Human checkpoint reached: ${livingDoc.human_review_reason || 'review required'}. Waiting for user approval before proceeding.`
+    );
+  } else {
+    outputBlock(
+      'Phase complete, transitioning',
+      `SYSTEM: Phase ${completedPhase} complete. Continuing to ${livingDoc.phase}.`
+    );
+  }
 }
 
 main().catch(err => {

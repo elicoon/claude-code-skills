@@ -16,8 +16,12 @@ const os = require('os');
 const readline = require('readline');
 
 // --- Configuration ---
-const THRESHOLD_PERCENT = 60;
-const MAX_TOKENS = 200000;
+// THRESHOLD_PERCENT: When estimated context usage crosses this, trigger auto-handoff.
+// Configurable via CLAUDE_CONTEXT_THRESHOLD env var (default: 60).
+const THRESHOLD_PERCENT = parseInt(process.env.CLAUDE_CONTEXT_THRESHOLD, 10) || 60;
+// MAX_TOKENS: Model context window size. Update if using a different model.
+// Claude Opus 4.6 / Sonnet 4.5: 200K tokens.
+const MAX_TOKENS = parseInt(process.env.CLAUDE_MAX_TOKENS, 10) || 200000;
 const CHARS_PER_TOKEN = 4;
 const LOG_DIR = path.join(os.homedir(), '.claude', 'logs');
 const LOG_FILE = path.join(LOG_DIR, 'context-usage.jsonl');

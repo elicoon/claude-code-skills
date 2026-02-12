@@ -45,7 +45,128 @@ Also resolve:
 
 ---
 
-[FIRST RUN SECTION PLACEHOLDER]
+## First Run
+
+If `{DEV_ORG_PATH}/docs/handler-state.md` does not exist, this is the first run. Before proceeding to Phase 1:
+
+### Step F1: Create directory structure
+
+```bash
+mkdir -p {DEV_ORG_PATH}/docs/handler-dispatches
+mkdir -p {DEV_ORG_PATH}/docs/handler-results
+mkdir -p {DEV_ORG_PATH}/docs/handler-blockers
+```
+
+### Step F2: Create initial handler state file
+
+Create `{DEV_ORG_PATH}/docs/handler-state.md` with the following template:
+
+~~~markdown
+# Handler State
+
+<!--
+HANDLER STATE FILE
+==================
+Persistent memory between check-ins. Append-only history sections.
+Handler reads this fresh every check-in.
+-->
+
+## Last Check-in
+[Will be set after first check-in completes]
+
+## Weekly Budget
+
+| Field | Value |
+|-------|-------|
+| **Week of** | [current Monday's date] |
+| **Total** | 100% |
+| **Used** | 0% |
+| **Remaining** | 100% |
+| **Days left** | [days until Sunday] |
+| **Pace** | starting |
+
+### Budget by Project
+
+| Project | Priority | Allocated | Used | Status |
+|---------|----------|-----------|------|--------|
+| [To be filled after priority confirmation] | | | | |
+
+## Active Dispatches
+
+| ID | Project | Task | Window | Status | Dispatched |
+|----|---------|------|--------|--------|------------|
+| (none yet) | | | | | |
+
+## Pending Decisions
+
+| ID | Project | Question | Options |
+|----|---------|----------|---------|
+| (none yet) | | | |
+
+## Priority Alignment
+
+Last confirmed: never
+[Handler must confirm priorities on first run before dispatching work]
+
+## Discoveries
+
+| Date | Discovery | Impact |
+|------|-----------|--------|
+| | | |
+
+## What Failed
+
+| Date | Dispatch | Why It Failed | Lesson |
+|------|----------|---------------|--------|
+| | | | |
+
+## Blockers
+
+### Active
+
+| ID | Project | Description | Proposed Resolution |
+|----|---------|-------------|---------------------|
+| | | | |
+
+### Resolved
+
+| ID | Resolution | Date Resolved |
+|----|------------|---------------|
+| | | |
+
+## Check-in Log
+
+| Date | Projects Scanned | Dispatches Launched | Decisions Made | Budget Used |
+|------|-----------------|--------------------|--------------------|-------------|
+| | | | | |
+~~~
+
+### Step F3: Confirm priorities
+
+Before any dispatching can happen, the handler MUST confirm priorities with the user:
+
+```
+Welcome to Handler — first run.
+
+I've scanned your projects. Before I can dispatch work, I need to
+confirm priorities. Here's what I found:
+
+[List active projects with recent activity]
+
+How would you rank these? (I'll use this to allocate weekly budget)
+```
+
+After confirmation, fill in the Priority Alignment and Budget by Project sections in handler-state.md.
+
+### Step F4: Commit initial state
+
+```bash
+cd {DEV_ORG_PATH}
+git add docs/handler-state.md
+git commit -m "feat: initialize handler state for first run"
+```
+
+Then proceed to Phase 1 as normal.
 
 ---
 

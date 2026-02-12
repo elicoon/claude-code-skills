@@ -1,0 +1,9 @@
+#!/bin/sh
+# Auto-sync skills to Claude Code cache after each commit.
+# Only runs if the commit touched files under skills/.
+
+CHANGED=$(git diff-tree --no-commit-id --name-only -r HEAD -- skills/)
+if [ -n "$CHANGED" ]; then
+  REPO_ROOT="$(git rev-parse --show-toplevel)"
+  "$REPO_ROOT/sync-skills.sh"
+fi

@@ -73,6 +73,7 @@ These skills implement a "Personal OS" for managing tasks, learnings, and sessio
 | [/handoff](skills/handoff/) | Session continuity. Packages context for continuation in a fresh Claude Code session when context window fills. |
 | [/executing-handoffs](skills/executing-handoffs/) | Execute handoff documents. Orchestrates work from handoff files with subagent delegation to preserve context. |
 | [/dashboard](skills/dashboard/) | Visual backlog view. Starts local server and opens Kanban/Command Center dashboard in browser. |
+| [/handler](skills/handler/) | Daily check-in AI product manager. Scans all projects, dispatches autonomous work, keeps the pipeline full. |
 
 ## Structure
 
@@ -97,7 +98,11 @@ claude-code-skills/
 │   ├── handoff/         # Session continuity
 │   ├── executing-handoffs/
 │   ├── dashboard/       # Visual backlog
-│   └── debug-loop/      # Deterministic debugging
+│   ├── debug-loop/      # Deterministic debugging
+│   └── handler/         # AI product manager
+├── hooks/               # Git and Claude Code hooks
+│   └── post-commit      # Auto-syncs new skills to cache
+├── sync-skills.sh       # Manual skill cache sync
 └── README.md
 ```
 
@@ -108,6 +113,17 @@ claude-code-skills/
 3. Use `/orient` at the start of sessions to prioritize
 4. Use `/review` at the end of sessions to capture learnings
 5. Use `/handoff` when context window fills to continue in a new session
+
+## Post-Clone Setup
+
+After cloning, install the git hooks so new skills auto-sync to the Claude Code cache:
+
+```bash
+cp hooks/post-commit .git/hooks/post-commit
+chmod +x .git/hooks/post-commit
+```
+
+Or run `./sync-skills.sh` manually after creating new skills.
 
 ## Creating a Skill
 

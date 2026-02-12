@@ -190,7 +190,130 @@ For each item, determine:
 
 ---
 
-[PHASE 3 PLACEHOLDER]
+## Phase 3: Dispatch — Route and Launch
+
+### Step 3.1: Write Dispatch Files
+
+For each item in the dispatch queue that is approved (auto-dispatch or user-approved):
+
+Create `{DEV_ORG_PATH}/docs/handler-dispatches/YYYY-MM-DD-<project>-<task-slug>.md` using this template:
+
+~~~markdown
+# Dispatch: [Task Name]
+
+<!--
+HANDLER DISPATCH
+================
+This document contains everything needed to execute this task autonomously.
+Read the entire document before taking action.
+
+WORKER CONTRACT:
+1. Read this document completely before starting
+2. Use the specified skill chain below
+3. If blocked, write blocker to docs/handler-blockers/YYYY-MM-DD-<slug>.md and stop
+4. Do not merge PRs — create them and report back
+5. Write completion report to docs/handler-results/YYYY-MM-DD-<slug>.md before exiting
+6. Code review issues go through /debug-loop, not quick fixes (max 3 rounds)
+-->
+
+## Metadata
+
+| Field | Value |
+|-------|-------|
+| **Project** | [repo name] |
+| **Repo** | [full path to repo] |
+| **Priority** | P[1-3] |
+| **Skill Chain** | [skill sequence from routing table] |
+| **Dispatched** | YYYY-MM-DD HH:MM |
+| **Budget Cap** | ~X% of weekly allocation |
+
+## Objective
+
+[One sentence: what "done" looks like]
+
+### Acceptance Criteria
+
+- [ ] [Specific, testable outcome]
+- [ ] [Specific, testable outcome]
+
+### Scope Boundaries
+
+- Not addressing: [explicitly out of scope]
+
+## Context
+
+[Key files, recent decisions, relevant background — enough for a cold start.
+Include any relevant info from backlog task, recent commits, and handler analysis.]
+
+## Verification Gate
+
+All PR-producing work must pass this sequence before creating a PR:
+
+1. Run `/code-review` on implementation
+2. If issues found → run `/debug-loop` on each issue (not quick fixes — max 3 rounds)
+3. Re-run `/code-review` — if still failing after 3 rounds, write blocker and stop
+4. Run `/test-feature` — capture actual output as evidence
+5. Create PR with test evidence in description
+
+## On Completion
+
+Write `{DEV_ORG_PATH}/docs/handler-results/YYYY-MM-DD-<slug>.md`:
+
+```
+## Result: [task name]
+- Commit: [hash]
+- PR: #[number] (or "no PR — research/grooming task")
+- Tests: [X passed, Y failed]
+- Code review: [clean / N issues found and resolved]
+- Blockers encountered: [none, or description]
+```
+
+## On Blocker
+
+1. Run `/retro` to analyze root cause
+2. Write `{DEV_ORG_PATH}/docs/handler-blockers/YYYY-MM-DD-<slug>.md`:
+
+```
+## Blocker: [task name]
+- Step blocked at: [what was being attempted]
+- Root cause: [from retro analysis]
+- Proposed resolution: [what would unblock this]
+- Needs user input: [yes/no — and what specifically]
+```
+
+3. Stop work — do not attempt workarounds without handler approval
+~~~
+
+After writing each dispatch file, **read it back** to verify it's complete and correct.
+
+### Step 3.2: Launch Worker Sessions
+
+For each dispatch file, determine execution method:
+
+**If tmux is available** (always-on server):
+```bash
+tmux new-window -d -n "<project>" -c "<repo-path>" \
+  "claude 'You are a worker session dispatched by the handler. Read and execute {DEV_ORG_PATH}/docs/handler-dispatches/YYYY-MM-DD-<slug>.md — follow the worker contract exactly.'"
+```
+
+**If tmux is not available** (local machine):
+Present copy-paste commands to the user:
+```
+Ready to dispatch. Run these in separate terminals:
+
+Window 1 — [project]:
+  cd [repo-path]
+  claude "Read and execute [dispatch-file-path]"
+```
+
+### Step 3.3: Update Handler State
+
+After dispatching, update `{DEV_ORG_PATH}/docs/handler-state.md`:
+- Add new entries to Active Dispatches table
+- Update budget estimates
+- Clear any completed/resolved items from previous check-in
+- Move completed dispatches to Check-in Log
+- Update Last Check-in timestamp
 
 ---
 

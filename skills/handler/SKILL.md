@@ -317,7 +317,88 @@ After dispatching, update `{DEV_ORG_PATH}/docs/handler-state.md`:
 
 ---
 
-[PHASE 4 PLACEHOLDER]
+## Phase 4: Report — Briefing
+
+Present the check-in briefing to the user. Format depends on context.
+
+### Standard Briefing (desktop session)
+
+~~~
+Handler: [Day] Briefing
+─────────────────────────
+[N] projects active, [X] progressing, [Y] needs attention
+
+[For each active project, one line:]
+🟢 [project] — [status summary, last action, next action]
+🟡 [project] — [what needs attention and why]
+🔴 [project] — [blocked/stalled, what's wrong]
+
+Dispatched since last check-in:
+  ✅ [project]: [task] (completed — [key result])
+  🔄 [project]: [task] (running)
+  ❌ [project]: [task] (blocked — [reason])
+
+[If there are auto-dispatched items this check-in:]
+Auto-dispatched:
+  🚀 [project]: [task] (launched just now)
+
+[If there are items needing approval:]
+Needs your input:
+  1. [decision needed] [Y/n]
+  2. [decision needed] [Y/n]
+  3. [decision needed] [options]
+
+Weekly budget: [X]% used, [N] days remaining ([on pace / over / under])
+[If priority misalignment:] ⚠️  [priority concern]
+~~~
+
+### Phone Briefing (compressed for mobile check-in)
+
+When the user indicates they're on phone, gives very short responses, or the handler detects terse input patterns:
+
+~~~
+[N] active, [X] ok, [Y] needs input
+
+🟢 golf-clip ✅ PR merged
+🟡 happy-cli — no tasks queued
+🔄 dev-org — grooming running
+
+Input needed:
+1. Scope happy-cli sprint? [Y/n]
+2. Approve golf-clip PR #14? [Y/n]
+
+Budget: 62% used, 3d left ✓
+~~~
+
+Batch all decisions into numbered list. Accept responses like "1y 2n" or just "y" (applies to all).
+
+### Priority Re-confirmation
+
+If priorities haven't been confirmed in 7+ days, present BEFORE the regular briefing:
+
+~~~
+⚠️  Priority check — last confirmed [N] days ago.
+Current allocation:
+  P1: [project] ([X]%)
+  P2: [project] ([X]%)
+  P3: [project] ([X]%)
+  Unallocated: [X]%
+
+Still accurate? [Y/n/adjust]
+~~~
+
+Do not dispatch new work until priorities are confirmed.
+
+### Post-Briefing
+
+After presenting the briefing and receiving any approvals:
+1. Launch approved dispatches (return to Phase 3 Step 3.2)
+2. Update handler state with decisions made
+3. Confirm: "Background work running. Next check-in recommended in ~4 hours."
+
+If no work could be dispatched (everything blocked or starving and needs user input):
+- Flag this explicitly: "⚠️ No background work running. [Reason]. [Proposed action to unblock]."
+- This is a handler failure state — every check-in should end with work running.
 
 ---
 

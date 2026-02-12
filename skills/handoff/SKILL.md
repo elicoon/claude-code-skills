@@ -33,7 +33,9 @@ Use this skill when:
 
 When this skill is invoked, follow these steps exactly.
 
-**CRITICAL: Before starting, create a TodoWrite checklist with all 9 steps below (Step 0 through Step 8). Mark each step in_progress before starting it and completed after finishing it. Do not skip steps or reorder them. Re-read the template text in Steps 5 and 8 before generating output — do not work from memory.**
+**CRITICAL: Before starting, create a TodoWrite checklist with all 9 steps below (Step 0 through Step 8). Mark each step in_progress before starting it and completed after finishing it. Do not skip steps or reorder them. Re-read the template text in Steps 4 and 7 before generating output — do not work from memory.**
+
+**PRIORITY: Speed. The user needs the handoff prompt ASAP — context window may be nearly full. Get through Steps 0-7 as fast as possible. Review (Step 8) happens AFTER the user is unblocked.**
 
 ### Step 0: Load Configuration
 
@@ -46,24 +48,7 @@ Before starting, check for `.atlas.yaml` in the project root:
 
 ---
 
-### Step 1: Run /claude-code-skills:review First
-
-**Always run `/claude-code-skills:review` before generating the handoff.**
-
-This captures learnings to the reference layer before packaging. Tell the user:
-
-> Before creating the handoff, let's capture any learnings from this session.
-
-Then invoke the review skill. This ensures:
-- Lessons are captured to `{REFERENCE_PATH}/lessons/lessons.md`
-- Memories are captured to `{REFERENCE_PATH}/memories/memories.md`
-- The handoff file can focus on state/context rather than duplicating learnings
-
-After review completes, proceed to Step 2.
-
----
-
-### Step 2: Check for Formal Plan
+### Step 1: Check for Formal Plan
 
 Look for an existing plan document:
 1. Check conversation history for references to plan documents
@@ -85,7 +70,7 @@ Wait for user response before proceeding.
 
 ---
 
-### Step 3: Gather Handoff Information
+### Step 2: Gather Handoff Information
 
 Reflect on the session and gather:
 
@@ -117,7 +102,7 @@ Wait for confirmation before proceeding.
 
 ---
 
-### Step 4: Generate Handoff File
+### Step 3: Generate Handoff File
 
 Create the handoff file at `{PLANS_PATH}/YYYY-MM-DD-<topic>-handoff.md`.
 
@@ -161,7 +146,7 @@ Create the handoff file at `{PLANS_PATH}/YYYY-MM-DD-<topic>-handoff.md`.
 
 ---
 
-### Step 5: Generate Starter Prompt
+### Step 4: Generate Starter Prompt
 
 Generate the starter prompt using this template exactly:
 
@@ -200,7 +185,7 @@ Fill in:
 
 ---
 
-### Step 6: Verify Changes (REQUIRED)
+### Step 5: Verify Changes (REQUIRED)
 
 **This step is mandatory. Never skip it.**
 
@@ -226,7 +211,7 @@ After writing the handoff file:
 
 ---
 
-### Step 7: Commit to Git
+### Step 6: Commit to Git
 
 Commit the handoff file with a descriptive message:
 
@@ -239,7 +224,7 @@ Next session should [recommended action].
 
 ---
 
-### Step 8: Display to User
+### Step 7: Display to User
 
 Present both artifacts to the user:
 
@@ -260,6 +245,22 @@ Present both artifacts to the user:
 > Copy this prompt to start a new Claude Code session. The new session will have full context to continue the work.
 >
 > **Reminder:** When the work is complete, rename the handoff file to add `-archived` suffix.
+
+**The user is now unblocked.** They can copy the starter prompt and open a new session immediately. Proceed to Step 8 only after displaying the prompt.
+
+---
+
+### Step 8: Run /claude-code-skills:review (Optional, After Handoff)
+
+Now that the user is unblocked, offer to capture learnings:
+
+> Now that the handoff is ready, would you like to capture learnings from this session before closing?
+
+**If yes:** Invoke `/claude-code-skills:review`. This captures:
+- Lessons to `{REFERENCE_PATH}/lessons/lessons.md`
+- Memories to `{REFERENCE_PATH}/memories/memories.md`
+
+**If no (or user has already left):** Skip. Learnings can be captured in the next session if needed. The handoff document preserves the critical context regardless.
 
 ---
 
@@ -288,7 +289,7 @@ All file paths in this skill are relative to the dev-org repo root unless otherw
 ## Error Handling
 
 - **If `{PLANS_PATH}/` doesn't exist:** Create it before writing the handoff file.
-- **If user declines review:** Proceed with handoff generation, but note that learnings may not be captured in reference layer.
+- **If user declines review (Step 8):** No problem — the handoff document preserves critical context. Learnings can be captured later.
 - **If handoff topic is unclear:** Ask the user what to call this work for the filename.
 - **If git commit fails:** Inform the user and suggest manual commit.
 
@@ -301,12 +302,6 @@ All file paths in this skill are relative to the dev-org repo root unless otherw
 User: `/claude-code-skills:handoff`
 
 Response:
-> Before creating the handoff, let's capture any learnings from this session.
->
-> [Runs /claude-code-skills:review - captures learnings about the implementation approach]
-
-After review completes:
-
 > I found a formal plan at `docs/plans/2026-01-27-api-refactor-plan.md`. I'll reference this in the handoff.
 >
 > Here's what I understand about the current state of this work:
@@ -373,12 +368,6 @@ User: "That's right, go ahead"
 User: `/claude-code-skills:handoff`
 
 Response:
-> Before creating the handoff, let's capture any learnings from this session.
->
-> [Runs /claude-code-skills:review - captures what was discovered about the bug]
-
-After review completes:
-
 > I don't see a formal plan document for this work. Would you like to:
 > 1. **Create a plan first** - Use `/superpowers:writing-plans` to document the approach
 > 2. **Proceed without** - I'll capture the conversation-based understanding
@@ -417,11 +406,6 @@ User: "Yes"
 User: "I need to hand this off, we've been researching options for the caching layer"
 
 Response:
-> Before creating the handoff, let's capture any learnings from this session.
->
-> [Runs /claude-code-skills:review]
-
-After review:
 
 > Here's what I understand:
 >
@@ -455,7 +439,7 @@ User: "Perfect"
 
 ## Reminders
 
-- **Always run /claude-code-skills:review first** - Capture learnings before packaging
+- **Speed first** - Get the handoff prompt to the user ASAP. Review comes after.
 - **"What We Learned" is critical** - This is what would be lost without the handoff
 - **Verify the handoff file** - Read it back and confirm accuracy
 - **Starter prompt is deterministic** - Use the template exactly, just fill in the blanks

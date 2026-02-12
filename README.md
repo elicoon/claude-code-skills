@@ -74,6 +74,7 @@ These skills implement a "Personal OS" for managing tasks, learnings, and sessio
 | [/executing-handoffs](skills/executing-handoffs/) | Execute handoff documents. Orchestrates work from handoff files with subagent delegation to preserve context. |
 | [/dashboard](skills/dashboard/) | Visual backlog view. Starts local server and opens Kanban/Command Center dashboard in browser. |
 | [/handler](skills/handler/) | Daily check-in AI product manager. Scans all projects, dispatches autonomous work, keeps the pipeline full. |
+| [/scope](skills/scope/) | Project pipeline filler. Scans a project, identifies autonomous work across 8 categories, and writes dispatch files ready for handler execution. |
 
 ## Structure
 
@@ -99,9 +100,11 @@ claude-code-skills/
 │   ├── executing-handoffs/
 │   ├── dashboard/       # Visual backlog
 │   ├── debug-loop/      # Deterministic debugging
-│   └── handler/         # AI product manager
+│   ├── handler/         # AI product manager
+│   └── scope/           # Project pipeline filler
 ├── hooks/               # Git and Claude Code hooks
-│   └── post-commit      # Auto-syncs new skills to cache
+│   ├── post-commit      # Auto-syncs new skills to cache
+│   └── validate-dispatch.js  # Rejects malformed dispatch files
 ├── sync-skills.sh       # Manual skill cache sync
 └── README.md
 ```

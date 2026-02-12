@@ -31,17 +31,21 @@ DESIGN DOC: dev-org/docs/plans/2026-02-11-handler-design.md
 
 ### Step 0: Load Configuration
 
-Before starting, check for `.atlas.yaml` in the project root:
+**This skill must be invoked from the dev-org project directory.** The handler operates across repos but dev-org is its home base.
+
+**Pre-flight check:** Verify the current working directory contains `backlog/` and `reference/` directories. If not, this is not the dev-org project root — ask the user for the correct path before proceeding.
+
+Resolve paths:
+- `{DEV_ORG_PATH}` → the current working directory (verified as dev-org above). **Always resolve to an absolute path.**
+- `{PROJECTS_DIR}` → parent directory of `{DEV_ORG_PATH}` (e.g., `~/projects/`)
+
+Check for `.atlas.yaml` in the project root:
 - If found, read and use configured values
 - If not found, use defaults:
   - `{REFERENCE_PATH}` → `reference/`
   - `{BACKLOG_PATH}` → `backlog/tasks/`
   - `{PLANS_PATH}` → `docs/plans/`
   - `{USER_NAME}` → `"the user"`
-
-Also resolve:
-- `{DEV_ORG_PATH}` → the project root where this skill is invoked (should be dev-org)
-- `{PROJECTS_DIR}` → parent directory of dev-org (e.g., `~/projects/`)
 
 ---
 
@@ -405,7 +409,9 @@ Write `{DEV_ORG_PATH}/docs/handler-results/YYYY-MM-DD-<slug>.md`:
 3. Stop work — do not attempt workarounds without handler approval
 ~~~
 
-After writing each dispatch file, **read it back** to verify it's complete and correct.
+**IMPORTANT:** Before writing the dispatch file, resolve ALL `{DEV_ORG_PATH}` placeholders to the actual absolute path (e.g., `/home/eli/projects/dev-org`). Workers are launched in the target project's directory and have no way to resolve dev-org path variables. The dispatch file must contain concrete paths.
+
+After writing each dispatch file, **read it back** to verify it's complete and all paths are absolute.
 
 ### Step 3.2: Launch Worker Sessions
 
@@ -579,6 +585,9 @@ These rules exist because a previous project (traffic-control, Jan 2026) failed 
 | GitHub API rate limited | Skip GitHub scan, note in briefing, use local data only |
 | A project repo not found locally | Note as "remote-only" in briefing, use GitHub data |
 | Budget tracking data unavailable | Estimate from check-in log, flag uncertainty |
+| handler-state.md has parse errors | Back up current file, reconstruct from dispatch/results/blockers directories, flag in briefing |
+| `/test-feature` fails after code-review passes | Run `/debug-loop` on the failing test, then re-run verification gate from step 1. Same 3-round cap applies. |
+| Running on Windows (no tmux) | Always use manual dispatch fallback (copy-paste commands) |
 
 ## Reminders
 

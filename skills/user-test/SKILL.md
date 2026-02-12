@@ -9,7 +9,7 @@ Hands-free user testing with automatic capture.
 
 ## Configuration
 
-This skill reads `.dev-org.yaml` from the project root if present. If no config file exists, default paths are used.
+This skill reads `.atlas.yaml` from the project root if present. If no config file exists, default paths are used.
 
 **Config variables:**
 | Variable | Default | Purpose |
@@ -57,7 +57,7 @@ If a component can't be auto-started, the skill will provide specific instructio
 
 ### Step 0: Load Configuration
 
-Before starting, check for `.dev-org.yaml` in the project root:
+Before starting, check for `.atlas.yaml` in the project root:
 - If found, read and use configured values
 - If not found, use defaults:
   - `{BACKLOG_PATH}` → `backlog/tasks/`

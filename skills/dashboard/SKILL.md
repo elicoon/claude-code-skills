@@ -13,7 +13,7 @@ Use this skill when you want to view the backlog dashboard visually. It handles 
 
 ## Configuration
 
-This skill reads `.dev-org.yaml` from the project root if present. If no config file exists, default paths are used.
+This skill reads `.atlas.yaml` from the project root if present. If no config file exists, default paths are used.
 
 **Config variables:**
 - `{SERVER_PORT}` - Port for the dashboard server (default: `3491`)
@@ -29,7 +29,7 @@ When this skill is invoked, follow these steps exactly:
 
 ### Step 0: Load Configuration
 
-Before starting, check for `.dev-org.yaml` in the project root:
+Before starting, check for `.atlas.yaml` in the project root:
 - If found, read `server.port` and `server.serve_script` values
 - If not found, use defaults:
   - `{SERVER_PORT}` → `3491`

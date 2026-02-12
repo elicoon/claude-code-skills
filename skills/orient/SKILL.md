@@ -21,7 +21,7 @@ This is a **read-only** operation. No files are modified.
 
 ## Configuration
 
-This skill reads `.dev-org.yaml` from the project root if present. If no config file exists, default paths are used.
+This skill reads `.atlas.yaml` from the project root if present. If no config file exists, default paths are used.
 
 **Available config variables:**
 
@@ -40,7 +40,7 @@ When this skill is invoked, follow these steps to **facilitate a conversation**,
 
 ### Step 0: Load Configuration
 
-Before starting, check for `.dev-org.yaml` in the project root:
+Before starting, check for `.atlas.yaml` in the project root:
 - If found, read and use configured values
 - If not found, use defaults:
   - `{REFERENCE_PATH}` → `reference/`

@@ -2,11 +2,11 @@
 
 ## Purpose
 
-First-run onboarding for the Personal OS / dev-org skills. Creates a `.dev-org.yaml` config file and optional folder structure through a minimal, friendly conversation.
+First-run onboarding for the Personal OS / claude-code-skills. Creates a `.atlas.yaml` config file and optional folder structure through a minimal, friendly conversation.
 
 ## What It Does
 
-1. Checks for existing `.dev-org.yaml` configuration
+1. Checks for existing `.atlas.yaml` configuration
 2. Gathers user context (name, constraints)
 3. Configures paths (backlog, reference, plans, postmortems)
 4. Sets up integrations (calendar, docs, other tools)
@@ -16,7 +16,7 @@ First-run onboarding for the Personal OS / dev-org skills. Creates a `.dev-org.y
 
 ## When to Use
 
-- First installing the dev-org skills
+- First installing the claude-code-skills
 - Setting up the Personal OS in a new workspace
 - Reconfiguring or updating an existing setup
 

@@ -9,7 +9,7 @@ Add new tasks or ideas to the backlog, or update the status of existing tasks.
 
 ## Configuration
 
-This skill reads `.dev-org.yaml` from the project root if present. If no config file exists, default paths are used.
+This skill reads `.atlas.yaml` from the project root if present. If no config file exists, default paths are used.
 
 **Config variables:**
 - `{BACKLOG_PATH}` - Directory for task files (default: `backlog/tasks/`)
@@ -23,7 +23,7 @@ Execute these instructions to help the user capture work items to the backlog.
 
 ### Step 0: Load Configuration
 
-Before starting, check for `.dev-org.yaml` in the project root:
+Before starting, check for `.atlas.yaml` in the project root:
 - If found, read and use configured values
 - If not found, use defaults:
   - `{BACKLOG_PATH}` → `backlog/tasks/`

@@ -9,7 +9,7 @@ Package session context into artifacts for continuation by a fresh Claude Code s
 
 ## Configuration
 
-This skill reads `.dev-org.yaml` from the project root if present. If no config file exists, default paths are used.
+This skill reads `.atlas.yaml` from the project root if present. If no config file exists, default paths are used.
 
 **Config variables used:**
 - `{REFERENCE_PATH}` - Path to reference layer (default: `reference/`)
@@ -37,7 +37,7 @@ When this skill is invoked, follow these steps exactly.
 
 ### Step 0: Load Configuration
 
-Before starting, check for `.dev-org.yaml` in the project root:
+Before starting, check for `.atlas.yaml` in the project root:
 - If found, read and use configured values
 - If not found, use defaults:
   - `{REFERENCE_PATH}` → `reference/`

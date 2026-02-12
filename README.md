@@ -64,7 +64,7 @@ These skills implement a "Personal OS" for managing tasks, learnings, and sessio
 
 | Skill | Description |
 |-------|-------------|
-| [/setup](skills/setup/) | First-run onboarding. Creates `.dev-org.yaml` config file and folder structure for tasks and reference layer. |
+| [/setup](skills/setup/) | First-run onboarding. Creates `.atlas.yaml` config file and folder structure for tasks and reference layer. |
 | [/orient](skills/orient/) | Start-of-session prioritization. Reviews backlog, calendar, and context to help decide what to work on next. |
 | [/add](skills/add/) | Capture new tasks/ideas or update existing task status. Handles full backlog item lifecycle with git commits. |
 | [/review](skills/review/) | End-of-session reflection. Captures learnings, memories, and preferences to the reference layer. |

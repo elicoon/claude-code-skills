@@ -409,7 +409,7 @@ Write `{DEV_ORG_PATH}/docs/handler-results/YYYY-MM-DD-<slug>.md`:
 3. Stop work — do not attempt workarounds without handler approval
 ~~~
 
-**IMPORTANT:** Before writing the dispatch file, resolve ALL `{DEV_ORG_PATH}` placeholders to the actual absolute path (e.g., `/home/eli/projects/dev-org`). Workers are launched in the target project's directory and have no way to resolve dev-org path variables. The dispatch file must contain concrete paths.
+**IMPORTANT:** Before writing the dispatch file, resolve ALL `{DEV_ORG_PATH}` placeholders to the actual absolute path (e.g., `~/projects/dev-org`). Workers are launched in the target project's directory and have no way to resolve dev-org path variables. The dispatch file must contain concrete paths.
 
 After writing each dispatch file, **read it back** to verify it's complete and all paths are absolute.
 
@@ -422,7 +422,7 @@ For each dispatch file, determine execution method:
 tmux new-window -d -n "<project>" -c "<repo-path>" \
   "claude 'You are a worker session dispatched by the handler. Read and execute <absolute-path-to-dev-org>/docs/handler-dispatches/YYYY-MM-DD-<slug>.md — follow the worker contract exactly.'"
 ```
-**IMPORTANT:** Replace `<absolute-path-to-dev-org>` with the resolved `{DEV_ORG_PATH}` value (e.g., `C:\Users\Eli\projects\dev-org` or `/home/eli/projects/dev-org`). Do not leave path variables in the tmux command.
+**IMPORTANT:** Replace `<absolute-path-to-dev-org>` with the resolved `{DEV_ORG_PATH}` value (e.g., `C:\Users\Eli\projects\dev-org` or `~/projects/dev-org`). Do not leave path variables in the tmux command.
 
 **If tmux is not available** (local machine):
 Present copy-paste commands to the user:

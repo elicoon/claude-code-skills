@@ -21,7 +21,7 @@ Run ALL of the following bash commands in parallel to collect worker state. Do n
 tmux list-windows -F "#{window_index}|#{window_name}|#{pane_current_command}|#{pane_activity}|#{pane_pid}"
 ```
 
-Parse each line. Worker windows are any window running `claude` as the pane command (exclude the window you're currently in).
+Parse each line. Worker windows are any window running `claude` as the pane command (exclude the window you're currently in — check your own PID or window name).
 
 ### 0b: Check for result files
 
@@ -29,7 +29,7 @@ Parse each line. Worker windows are any window running `claude` as the pane comm
 ls -1t ~/projects/dev-org/docs/handler-results/*.md 2>/dev/null
 ```
 
-Each file means a worker completed and wrote its report.
+Each file means a worker completed and wrote its report. Match filenames to dispatch IDs (e.g., `2026-02-12-golf-clip-fix-tests.md` matches the `gc-tests` window).
 
 ### 0c: Check for blocker files
 
@@ -39,30 +39,58 @@ ls -1t ~/projects/dev-org/docs/handler-blockers/*.md 2>/dev/null
 
 Each file means a worker hit a blocker.
 
-### 0d: Capture recent output from each worker window
+### 0d: Check process activity signals
 
-For EACH worker window found in 0a, run:
+**IMPORTANT:** Claude Code uses a TUI with an alternate screen buffer. `tmux capture-pane` returns empty output for Claude Code sessions. Do NOT rely on pane capture for activity data.
 
+Instead, use these reliable signals:
+
+**CPU time** (shows accumulated work — increasing = active):
 ```bash
-tmux capture-pane -t <window_name> -p -S -30 2>/dev/null
+for win in <worker_windows>; do
+  pid=$(tmux list-panes -t "$win" -F '#{pane_pid}' 2>/dev/null)
+  cputime=$(ps -p "$pid" -o cputime= 2>/dev/null)
+  echo "$win|$pid|$cputime"
+done
 ```
 
-This captures the last 30 lines of visible output. Parse for:
+**Git activity** (shows commits made by workers):
+```bash
+# Check recent commits in target repos
+for repo in golf-clip dev-org traffic-control mosh-ssh-tmux coon-family-app household-automations financial-analysis; do
+  last=$(git -C ~/projects/$repo log --oneline -1 --format="%ar|%s" 2>/dev/null)
+  echo "$repo|$last"
+done
+```
 
-- **Token counts**: Look for patterns like `total_tokens:`, `tokens:`, or the Claude Code cost/token display
-- **Tool calls**: Look for patterns like `tool_uses:`, or count lines containing tool call indicators
-- **Current activity**: The last non-empty line that describes what the worker is doing
-- **Waiting for input**: Look for `?`, `[Y/n]`, `(y/N)`, `approve`, `permission` — these mean the worker is stuck waiting
+**New branches** (feature workers create branches):
+```bash
+for repo in golf-clip mosh-ssh-tmux; do
+  branches=$(git -C ~/projects/$repo branch --list --format='%(refname:short)' 2>/dev/null | grep -v '^main$\|^master$')
+  echo "$repo|$branches"
+done
+```
 
 ### 0e: Calculate timing
 
-For each worker, calculate minutes since last activity:
+For each worker, calculate minutes since last pane activity:
 
 ```bash
-echo $(( ($(date +%s) - <pane_activity_timestamp>) / 60 ))
+for win in <worker_windows>; do
+  activity=$(tmux list-panes -t "$win" -F '#{pane_activity}' 2>/dev/null)
+  idle=$(( ($(date +%s) - activity) / 60 ))
+  echo "$win|${idle}min"
+done
 ```
 
-If minutes > 10 for a still-running worker, flag as potentially stalled.
+If idle > 15 minutes for a still-running worker, flag as potentially stalled.
+
+**Also check CPU time delta** — if CPU time hasn't changed between two checks ~30s apart, the worker may be idle/waiting:
+```bash
+# First reading
+for win in <worker_windows>; do ps -p $(tmux list-panes -t "$win" -F '#{pane_pid}') -o cputime= 2>/dev/null; done
+# Wait 10 seconds, take second reading, compare
+```
 
 ## Step 1: Determine Status
 
@@ -73,47 +101,57 @@ For each worker window, determine status using this priority:
 | Result file exists for this dispatch | `completed` | ✅ |
 | Blocker file exists for this dispatch | `blocked` | 🔴 |
 | Claude process not running (pane command != claude) | `exited` | ⚫ |
-| Output contains input prompt (Y/n, permission, etc.) | `waiting` | 🟡 |
-| Last activity > 10 min ago AND process still running | `stalled?` | 🟠 |
-| Process running, recent activity | `running` | 🔄 |
+| Pane command is `bash` or shell (claude exited to shell) | `exited` | ⚫ |
+| Idle > 15 min AND no CPU accumulation | `stalled?` | 🟠 |
+| Process running, CPU accumulating | `running` | 🔄 |
+
+**Note:** Without pane capture, we cannot detect `waiting` (input prompts). If a worker appears stalled, recommend the user check it manually: `tmux select-window -t <name>`.
 
 ## Step 2: Match Windows to Dispatches
 
-Read the Active Dispatches table from `~/projects/dev-org/docs/handler-state.md` to match tmux window names to dispatch IDs and task descriptions.
+Read the Active Dispatches table from `~/projects/dev-org/docs/handler-state.md` to match tmux window names to dispatch IDs, projects, and task descriptions.
+
+Window name mapping (convention):
+- `gc-tests` → golf-clip test fix
+- `gc-feat` → golf-clip feature work
+- `gc-groom` → golf-clip grooming
+- `devorg` → dev-org cleanup
+- `tc-clean` → traffic-control cleanup
+- `mosh` → mosh-ssh-tmux
+- `scope-*` → scoping agents
+- `gh-audit` → GitHub security audit
 
 ## Step 3: Present Table
 
-Output a single markdown table with these columns:
+Output a single markdown table:
 
 ```
-| Window | Project | Task | Status | Activity | Tools | Tokens | Idle | Action? |
+| Window | Project | Task | Status | CPU | Idle | Git Activity | Action? |
 ```
 
 Where:
 - **Window**: tmux window name
 - **Project**: from dispatch metadata
-- **Task**: short description from dispatch
+- **Task**: short task description (from handler-state.md)
 - **Status**: icon + label from Step 1
-- **Activity**: last meaningful line from output (truncated to ~40 chars)
-- **Tools**: number of tool calls if parseable, else `—`
-- **Tokens**: token count if parseable, else `—`
-- **Idle**: minutes since last activity
-- **Action?**: `none` / `input needed` / `review result` / `investigate stall` / `read blocker`
+- **CPU**: accumulated CPU time (proxy for work done)
+- **Idle**: minutes since last pane activity
+- **Git Activity**: last commit message if recent, or `—`
+- **Action?**: `none` / `review result` / `investigate stall` / `read blocker` / `check manually`
 
 ### Compact Format
 
 If the user appears to be on phone (short messages) or asks for compact output:
 
 ```
-9 workers: 3✅ 5🔄 1🟡
+9 workers: 3✅ 5🔄 1🟠
 
 ✅ gc-groom — done (result ready)
 ✅ mosh — done (result ready)
 ✅ scope-fin — done (result ready)
-🔄 gc-feat — implementing task 6/10 (12min)
-🔄 devorg — collapsing backlog tasks (8min)
-🔄 tc-clean — running npm test (5min)
-🟡 gc-tests — waiting for permission (2min) ← needs you
+🔄 gc-feat — running (cpu 2:34, idle 1min)
+🔄 devorg — running (cpu 1:45, idle 3min)
+🟠 tc-clean — stalled? (cpu 0:30, idle 18min) ← check it
 ```
 
 ## Step 4: Recommendations
@@ -122,11 +160,11 @@ After the table, add a brief section:
 
 **If any workers completed:** "N workers finished — run `/handler` to process results and dispatch next wave."
 
-**If any workers are waiting:** "N workers need input — check tmux windows: `tmux select-window -t <name>`"
-
-**If any workers stalled:** "N workers may be stalled (>10min idle). Investigate: `tmux select-window -t <name>`"
+**If any workers are waiting/stalled:** "N workers may need attention — switch to their window: `tmux select-window -t <name>`"
 
 **If all workers completed:** "All workers done! Run `/handler` for full briefing and next dispatches."
+
+**If all workers running normally:** "All N workers active. Check back in ~15 min or run `/monitor` again."
 
 ---
 
@@ -136,5 +174,5 @@ After the table, add a brief section:
 |-------|----------|
 | tmux not running | "No tmux session found. Workers may have exited." |
 | No worker windows | "No active workers found. Run `/handler` to dispatch work." |
-| Can't capture pane | Skip that window, note as "unknown" status |
-| handler-state.md missing | Show windows without dispatch matching |
+| handler-state.md missing | Show windows without dispatch matching — use window names only |
+| Process exited but no result file | "Worker exited without writing results — may have crashed. Check `tmux select-window -t <name>` for error output." |

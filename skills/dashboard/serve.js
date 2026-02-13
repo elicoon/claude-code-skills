@@ -1,5 +1,5 @@
 // Minimal static file server for the backlog dashboard.
-// Serves files from the repo root so dashboard.html can fetch backlog/backlog.md.
+// Serves files from the repo root so dashboard.html can fetch backlog/tasks/*.md.
 //
 // Usage:  node serve.js [port]
 // Then open: http://localhost:3000/dashboard.html

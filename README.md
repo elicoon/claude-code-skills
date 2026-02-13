@@ -74,6 +74,8 @@ These skills implement a "Personal OS" for managing tasks, learnings, and sessio
 | [/executing-handoffs](skills/executing-handoffs/) | Execute handoff documents. Orchestrates work from handoff files with subagent delegation to preserve context. |
 | [/dashboard](skills/dashboard/) | Visual backlog view. Starts local server and opens Kanban/Command Center dashboard in browser. |
 | [/handler](skills/handler/) | Daily check-in AI product manager. Scans all projects, dispatches autonomous work, keeps the pipeline full. |
+| [/loop](skills/loop/) | Filesystem-centric iterative workflows. Creates living plan documents that any agent can pick up, execute one step, and hand back. |
+| [/monitor](skills/monitor/) | Worker status dashboard. Shows status table of all running handler worker sessions in tmux. |
 | [/scope](skills/scope/) | Project pipeline filler. Scans a project, identifies autonomous work across 8 categories, and writes dispatch files ready for handler execution. |
 
 ## Structure
@@ -101,6 +103,8 @@ claude-code-skills/
 │   ├── dashboard/       # Visual backlog
 │   ├── debug-loop/      # Deterministic debugging
 │   ├── handler/         # AI product manager
+│   ├── loop/            # Iterative workflow documents
+│   ├── monitor/         # Worker status dashboard
 │   └── scope/           # Project pipeline filler
 ├── hooks/               # Git and Claude Code hooks
 │   ├── post-commit      # Auto-syncs new skills to cache

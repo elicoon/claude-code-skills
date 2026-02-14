@@ -27,7 +27,7 @@ async function main() {
   const filePath = payload?.tool_input?.file_path || "";
 
   // Only validate backlog task files
-  if (!filePath.includes("backlog/tasks/") || !filePath.endsWith(".md")) {
+  if (!/\/backlog\/tasks\/[^/]+\.md$/.test(filePath)) {
     return;
   }
 
@@ -46,10 +46,16 @@ async function main() {
     errors.push("Missing title (### heading)");
   }
 
-  // Check 2: Has Status field
+  // Check 2: Has Status field with valid value
   const statusMatch = content.match(/\*\*Status:\*\*\s*(.+)/);
   if (!statusMatch) {
     errors.push("Missing Status field");
+  } else {
+    const validStatuses = ["draft", "not started", "in progress", "blocked", "done"];
+    const status = statusMatch[1].trim().toLowerCase();
+    if (!validStatuses.includes(status)) {
+      errors.push(`Invalid Status value: "${statusMatch[1].trim()}" (must be one of: ${validStatuses.join(", ")})`);
+    }
   }
 
   // Check 3: Has Priority field
@@ -66,9 +72,9 @@ async function main() {
   // Check 4: Has Type field (required for workforce pipeline)
   const typeMatch = content.match(/\*\*Type:\*\*\s*(.+)/);
   if (!typeMatch) {
-    errors.push("Missing Type field (required: bug-fix | feature | refactor | research | documentation | grooming)");
+    errors.push("Missing Type field (required: bug-fix | feature | refactor | research | documentation | grooming | test-coverage)");
   } else {
-    const validTypes = ["bug-fix", "feature", "refactor", "research", "documentation", "grooming"];
+    const validTypes = ["bug-fix", "feature", "refactor", "research", "documentation", "grooming", "test-coverage"];
     const type = typeMatch[1].trim().toLowerCase();
     if (!validTypes.includes(type)) {
       errors.push(`Invalid Type value: "${typeMatch[1].trim()}" (must be one of: ${validTypes.join(", ")})`);
@@ -80,7 +86,7 @@ async function main() {
   if (!acSection) {
     errors.push("Missing #### Acceptance Criteria section");
   } else {
-    const checkboxes = acSection[1].match(/- \[ \]/g);
+    const checkboxes = acSection[1].match(/- \[[ x]\]/g);
     if (!checkboxes || checkboxes.length < 2) {
       errors.push(`Acceptance Criteria must have at least 2 checkboxes (found ${checkboxes ? checkboxes.length : 0})`);
     }

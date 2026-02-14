@@ -70,6 +70,7 @@ All markers live in `/tmp/`:
 
 | Marker | Written by | Read by | Lifetime |
 |--------|-----------|---------|----------|
+| `claude-handler-active` | handler skill (SKILL.md) | compaction-reread.js precompact | Entire session (until reboot) |
 | `claude-handler-{session_id}` | register-handler-session.js | compaction-reread.js precompact | Entire session |
 | `claude-compaction-{session_id}` | compaction-reread.js precompact | compaction-reread.js pretooluse (primary) or stop (failsafe) | One-shot (deleted after consumption) |
 | `worker-dispatch-path` | launch-worker.sh | compaction-reread.js precompact | Entire worker session |
@@ -89,10 +90,20 @@ test -f /tmp/claude-handler-test1 && echo "PASS: handler registered"
 echo '{"session_id":"test1"}' | node compaction-reread.js precompact
 cat /tmp/claude-compaction-test1 | python3 -m json.tool
 
-# 3. Stop (should block)
-echo '{"session_id":"test1","stop_hook_active":false}' | node compaction-reread.js stop
+# 3. PreToolUse (should block — primary path)
+echo '{"session_id":"test1"}' | node compaction-reread.js pretooluse
+# Should output JSON with decision:"block", marker consumed
 
-# 4. Stop again (should be silent — marker consumed)
+# 4. PreToolUse again (should be silent — marker consumed)
+echo '{"session_id":"test1"}' | node compaction-reread.js pretooluse
+# Should exit silently
+
+# 5. Re-create marker and test Stop (failsafe path)
+echo '{"session_id":"test1"}' | node compaction-reread.js precompact
+echo '{"session_id":"test1","stop_hook_active":false}' | node compaction-reread.js stop
+# Should output JSON with decision:"block"
+
+# 6. Stop again (should be silent — marker consumed)
 echo '{"session_id":"test1","stop_hook_active":false}' | node compaction-reread.js stop
 
 # Cleanup

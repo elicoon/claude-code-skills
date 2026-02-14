@@ -108,7 +108,11 @@ claude-code-skills/
 │   └── scope/           # Project pipeline filler
 ├── hooks/               # Git and Claude Code hooks
 │   ├── post-commit      # Auto-syncs new skills to cache
-│   └── validate-dispatch.js  # Rejects malformed dispatch files
+│   ├── validate-dispatch.js  # Rejects malformed dispatch files
+│   ├── compaction-reread.js  # Post-compaction state re-read enforcement
+│   ├── register-handler-session.js  # Handler session registration
+│   └── docs/
+│       └── compaction-reread.md  # Hook architecture documentation
 ├── sync-skills.sh       # Manual skill cache sync
 └── README.md
 ```

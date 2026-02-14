@@ -38,12 +38,18 @@ Context grows → compaction triggered
     - Worker marker:  {type:"worker", dispatch_file:"..."}
     - Regular:        no marker written
 
-POST-COMPACTION RE-READ (via Stop hook)
-───────────────────────────────────────
-Claude finishes post-compaction response
-  → Stop fires → compaction-reread.js stop
+POST-COMPACTION RE-READ (PreToolUse primary + Stop failsafe)
+─────────────────────────────────────────────────────────────
+Claude attempts first tool call after compaction
+  → PreToolUse fires → compaction-reread.js pretooluse
+  → No compaction marker? → exit (allow tool)
+  → Marker found → delete marker (one-shot) → return decision:"block" with reason
+  → Claude re-reads state files (Read calls pass — marker already consumed)
+
+If Claude's post-compaction response uses NO tool calls:
+  → Stop fires → compaction-reread.js stop (failsafe)
   → stop_hook_active=true? → exit (loop breaker)
-  → No compaction marker?  → exit (no compaction happened)
+  → No compaction marker?  → exit (PreToolUse already consumed it, or no compaction)
   → Marker found → delete marker → return decision:"block" with reason
 
   Handler reason: re-read handler-state.md, dispatches, blockers
@@ -55,7 +61,7 @@ Claude finishes post-compaction response
 | File | Purpose |
 |------|---------|
 | `register-handler-session.js` | PostToolUse hook — registers handler sessions |
-| `compaction-reread.js` | PreCompact + Stop hook — manages compaction markers and re-read injection |
+| `compaction-reread.js` | PreCompact + PreToolUse + Stop hook — manages compaction markers and re-read injection |
 | `launch-worker.sh` | Worker launcher — writes dispatch path for worker detection |
 
 ## Marker Files
@@ -65,7 +71,7 @@ All markers live in `/tmp/`:
 | Marker | Written by | Read by | Lifetime |
 |--------|-----------|---------|----------|
 | `claude-handler-{session_id}` | register-handler-session.js | compaction-reread.js precompact | Entire session |
-| `claude-compaction-{session_id}` | compaction-reread.js precompact | compaction-reread.js stop | One-shot (deleted after consumption) |
+| `claude-compaction-{session_id}` | compaction-reread.js precompact | compaction-reread.js pretooluse (primary) or stop (failsafe) | One-shot (deleted after consumption) |
 | `worker-dispatch-path` | launch-worker.sh | compaction-reread.js precompact | Entire worker session |
 
 ## Testing

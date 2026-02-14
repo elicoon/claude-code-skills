@@ -26,6 +26,40 @@ DESIGN DOC: dev-org/docs/plans/2026-02-11-handler-design.md
 - Checking in on progress from phone (~4 hour cadence)
 - Reviewing what background workers accomplished
 - Rebalancing priorities across projects
+- **Autonomously via heartbeat** (every 30 minutes, no user present)
+
+---
+
+## Autonomous Mode (Heartbeat)
+
+When invoked by the heartbeat loop (no user present), the handler runs a restricted subset of its phases. This keeps the workforce pipeline running continuously without human intervention.
+
+**Phase 1 (Lightweight scan):**
+- Step 1.1: Read handler-state.md
+- Step 1.5: Read worker results + blockers
+- Skip Steps 1.2–1.4 (full backlog/repo/GitHub scans — too heavy for 30-min cadence)
+
+**Phase 2 (Auto-dispatch only):**
+- Step 2.1: Identify starving projects — use handler-state.md's Budget by Project table and Active Dispatches to determine which projects have no queued or running work. For starving projects, dispatch a product-strategist worker via `launch-worker.sh`.
+- Step 2.5: Build dispatch queue — **only auto-dispatchable items** (see Autonomy Model). Check `handler-dispatches/` for unlaunched dispatch files.
+
+**Phase 3 (Launch):**
+- Step 3.0: Dispatch workforce-scoper if backlog items exist without dispatch files
+- Step 3.2: Launch workers for auto-dispatch items via `launch-worker.sh`
+- Step 3.3: Update handler-state.md and commit
+
+**Phase 4: Skip entirely.** No briefing, no approval requests.
+
+**Output:**
+- If no issues: `HEARTBEAT_OK`
+- If alerts needing human attention: `ALERT: [description]` (omit HEARTBEAT_OK token)
+
+**Constraints:**
+- Target under 2 minutes total
+- Never ask questions — no human is present
+- Never dispatch approval-required items (features, architecture, PR merges)
+- Never merge PRs or make architectural decisions
+- Commit state changes: `git commit -m "heartbeat: auto-update state [$(date +%H:%M)]"`
 
 ## Configuration
 
@@ -34,6 +68,11 @@ DESIGN DOC: dev-org/docs/plans/2026-02-11-handler-design.md
 **This skill must be invoked from the dev-org project directory.** The handler operates across repos but dev-org is its home base.
 
 **Pre-flight check:** Verify the current working directory contains `backlog/` and `reference/` directories. If not, this is not the dev-org project root — ask the user for the correct path before proceeding.
+
+**Register handler session:** Write a marker so compaction hooks know this is a handler session:
+```bash
+echo '{"timestamp":"'$(date -Iseconds)'"}' > /tmp/claude-handler-active
+```
 
 Resolve paths:
 - `{DEV_ORG_PATH}` → the current working directory (verified as dev-org above). **Always resolve to an absolute path.**
@@ -226,6 +265,23 @@ Check for files in `{DEV_ORG_PATH}/docs/handler-blockers/`. For each:
 - Parse blocker description and proposed resolution
 - Flag for user attention or auto-resolution
 
+### Step 1.6: Checkpoint — Save Scan State
+
+Append a scan summary to `{DEV_ORG_PATH}/docs/handler-state.md` under a new `## Scan Log` section (create if missing). Include: date/time, repos scanned, key findings (starving projects, stale repos, new PRs, worker results).
+
+**Action Logging (REQUIRED):**
+Before completing this phase, append any direct actions you took to `/home/eli/dev-org/docs/handler-action-log.md`:
+
+| [today's date] | [phase number] | [what you did] | [which workforce role could do this instead] | [any notes] |
+
+Direct actions include: reading files, running git commands, analyzing data, writing state, composing briefings. Essentially anything that isn't "call a worker/role and read its output."
+
+Then commit in background:
+
+```bash
+cd {DEV_ORG_PATH} && git add docs/handler-state.md && git commit -m "handler: checkpoint after scan" &
+```
+
 ---
 
 ## Phase 2: Analyze — Diagnose Pipeline Health
@@ -238,9 +294,15 @@ A project is **starving** if:
 - It is an active project (has in-progress or ready tasks in backlog, or recent commits)
 - AND it has fewer than 2 tasks that can be executed autonomously (without user input)
 
-For starving projects, determine:
-- Can the handler generate autonomous work? (research spikes, test coverage, documentation, grooming)
-- Or does it need user input to scope the next batch of work?
+For starving projects, **dispatch a product-strategist worker** to fill the backlog:
+
+```bash
+{DEV_ORG_PATH}/scripts/launch-worker.sh "<project>-strategist" "<repo-path>" "You are a product-strategist worker. Run /product-strategist to analyze this project and create well-scoped backlog items." ""
+```
+
+If tmux is unavailable, add to the briefing as a dispatch command for the user.
+
+Do NOT attempt to identify work opportunities yourself — that is the product-strategist's job. Handler only decides *which* projects are starving and dispatches the role.
 
 ### Step 2.2: Identify Blocked Work
 
@@ -263,10 +325,27 @@ Compare current budget allocation (from handler state) against stated priorities
 
 ### Step 2.4: Check Budget Pacing
 
-Calculate:
-- What % of weekly budget is used (from check-in log)
+**IMPORTANT: Never estimate budget usage. Use actual data only.**
+
+The handler's budget estimates are unreliable (documented: estimated 45% when actual was 27%). Always use one of these methods:
+
+1. **Ask the user** — During the briefing (Phase 4), ask the user to confirm both limits from `claude.ai/settings`. Record in handler-state.md.
+2. **Automated check** — If `scripts/check-usage.sh` exists and is working, run it to get actual usage. (See backlog task: `automate-usage-tracking.md`)
+
+Do NOT calculate budget from check-in log estimates or worker counts. Only record numbers confirmed by the user or retrieved programmatically.
+
+**Two limits exist:**
+- **Session limit** — resets every ~4 hours. Caps how much can run in one burst.
+- **Weekly limit** — resets Sunday 9 PM. Caps total weekly usage.
+
+Dispatch strategy must account for both:
+- Don't launch more workers than a single session window can handle
+- Spread dispatches across session windows throughout the day
+- Calculate remaining session windows: (hours until Sunday 9PM) / 4
+
+Calculate pacing from confirmed data:
 - What % of the week has elapsed
-- Is pacing on track, over, or under?
+- Is confirmed usage on track, over, or under?
 
 If under-paced (budget available but not being used):
 - Identify lower-priority work that can absorb excess budget
@@ -297,13 +376,16 @@ For each item, determine:
 | Refactor | `/loop`(refactor) → `/code-review` → if issues: `/debug-loop` → `/test-feature` | Yes |
 | Research | `/loop`(investigation) → write findings to `docs/research/` | No |
 | Backlog grooming | `/add` to update tasks, close stale items | No |
+| Backlog filling (starving projects) | `/product-strategist` → creates backlog items | No |
+| Backlog-to-dispatch conversion | `/workforce-scoper` → creates dispatch files | No |
 
 **Auto-dispatch rules** (no approval needed):
 - Research and investigation tasks
 - Backlog grooming
 - Test runs and code review on existing PRs
 - Re-running failed CI
-- Generating tasks for starving projects (research/grooming scope only)
+- **Product-strategist for starving projects** (fills backlog autonomously)
+- **Workforce-scoper to convert backlog items into dispatches**
 
 **Requires approval:**
 - New feature implementation
@@ -311,15 +393,45 @@ For each item, determine:
 - Merging PRs
 - Priority rebalancing
 - Any single dispatch estimated at >10% of weekly budget
-- Scoping new feature work for a starving project
+
+### Step 2.6: Checkpoint — Save Analysis State
+
+Append analysis results to `{DEV_ORG_PATH}/docs/handler-state.md`: starving projects, blockers found, dispatch queue built, budget pacing assessment.
+
+**Action Logging (REQUIRED):**
+Before completing this phase, append any direct actions you took to `/home/eli/dev-org/docs/handler-action-log.md`:
+
+| [today's date] | [phase number] | [what you did] | [which workforce role could do this instead] | [any notes] |
+
+Direct actions include: reading files, running git commands, analyzing data, writing state, composing briefings. Essentially anything that isn't "call a worker/role and read its output."
+
+Then commit in background:
+
+```bash
+cd {DEV_ORG_PATH} && git add docs/handler-state.md && git commit -m "handler: checkpoint after analysis" &
+```
 
 ---
 
 ## Phase 3: Dispatch — Route and Launch
 
-### Step 3.1: Write Dispatch Files
+### Step 3.0: Dispatch Workforce Scoper (if needed)
 
-For each item in the dispatch queue that is approved (auto-dispatch or user-approved):
+If there are backlog items ready for dispatch but no dispatch files exist for them, launch a **workforce-scoper** worker to convert them:
+
+```bash
+{DEV_ORG_PATH}/scripts/launch-worker.sh "<project>-scoper" "<repo-path>" "You are a workforce-scoper worker. Run /workforce-scoper to turn this project's backlog items into dispatch-ready work packages." ""
+```
+
+If tmux is unavailable, add to the briefing as a dispatch command for the user.
+
+The scoper worker will write dispatch files to `{DEV_ORG_PATH}/docs/handler-dispatches/` and update handler-state.md. Handler can then launch implementation workers against those dispatch files.
+
+**When to skip:** If dispatch files already exist for the project's backlog items, skip the scoper and go straight to Step 3.1.
+
+### Step 3.1: Write Dispatch Files (Fallback)
+
+If workforce-scoper is unavailable or for items that need immediate dispatch, handler can still write dispatch files directly. For each item in the dispatch queue that is approved (auto-dispatch or user-approved):
 
 Create `{DEV_ORG_PATH}/docs/handler-dispatches/YYYY-MM-DD-<project>-<task-slug>.md` using this template:
 
@@ -339,6 +451,7 @@ WORKER CONTRACT:
 4. Do not merge PRs — create them and report back
 5. Write completion report to docs/handler-results/YYYY-MM-DD-<slug>.md before exiting
 6. Code review issues go through /debug-loop, not quick fixes (max 3 rounds)
+7. After each skill in the chain completes, write a progress checkpoint to docs/handler-results/YYYY-MM-DD-<slug>-checkpoint.md with: what's done, what's next, open questions
 -->
 
 ## Metadata
@@ -409,7 +522,7 @@ Write `{DEV_ORG_PATH}/docs/handler-results/YYYY-MM-DD-<slug>.md`:
 3. Stop work — do not attempt workarounds without handler approval
 ~~~
 
-**IMPORTANT:** Before writing the dispatch file, resolve ALL `{DEV_ORG_PATH}` placeholders to the actual absolute path (e.g., `~/projects/dev-org`). Workers are launched in the target project's directory and have no way to resolve dev-org path variables. The dispatch file must contain concrete paths.
+**IMPORTANT:** Before writing the dispatch file, resolve ALL `{DEV_ORG_PATH}` placeholders to the actual absolute path (e.g., `/home/eli/projects/dev-org`). Workers are launched in the target project's directory and have no way to resolve dev-org path variables. The dispatch file must contain concrete paths.
 
 After writing each dispatch file, **read it back** to verify it's complete and all paths are absolute.
 
@@ -419,10 +532,11 @@ For each dispatch file, determine execution method:
 
 **If tmux is available** (always-on server):
 ```bash
-tmux new-window -d -n "<project>" -c "<repo-path>" \
-  "claude 'You are a worker session dispatched by the handler. Read and execute <absolute-path-to-dev-org>/docs/handler-dispatches/YYYY-MM-DD-<slug>.md — follow the worker contract exactly.'"
+{DEV_ORG_PATH}/scripts/launch-worker.sh "<name>" "<repo-path>" "You are a worker session dispatched by the handler. Read and execute <absolute-path-to-dispatch-file> — follow the worker contract exactly." "<absolute-path-to-dispatch-file>"
 ```
-**IMPORTANT:** Replace `<absolute-path-to-dev-org>` with the resolved `{DEV_ORG_PATH}` value (e.g., `C:\Users\Eli\projects\dev-org` or `~/projects/dev-org`). Do not leave path variables in the tmux command.
+**IMPORTANT:** Replace `{DEV_ORG_PATH}` with the resolved absolute path (e.g., `/home/eli/projects/dev-org`). Replace `<absolute-path-to-dispatch-file>` with the full path to the dispatch file. Do not leave path variables in the command.
+
+**Note:** `launch-worker.sh` handles all worker config setup (credentials, SSH keys, git config) via `setup-worker-config.sh` automatically. Output is logged to `/tmp/handler-logs/<name>.jsonl` and includes a startup health check.
 
 **If tmux is not available** (local machine):
 Present copy-paste commands to the user:
@@ -481,7 +595,7 @@ Needs your input:
   2. [decision needed] [Y/n]
   3. [decision needed] [options]
 
-Weekly budget: [X]% used, [N] days remaining ([on pace / over / under])
+Weekly budget: ❓ Please confirm actual % from claude.ai/settings → [record here]
 [If priority misalignment:] ⚠️  [priority concern]
 ~~~
 
@@ -533,6 +647,13 @@ If no work could be dispatched (everything blocked or starving and needs user in
 - Flag this explicitly: "⚠️ No background work running. [Reason]. [Proposed action to unblock]."
 - This is a handler failure state — every check-in should end with work running.
 
+**Action Logging (REQUIRED):**
+Before completing this phase, append any direct actions you took to `/home/eli/dev-org/docs/handler-action-log.md`:
+
+| [today's date] | [phase number] | [what you did] | [which workforce role could do this instead] | [any notes] |
+
+Direct actions include: reading files, running git commands, analyzing data, writing state, composing briefings. Essentially anything that isn't "call a worker/role and read its output."
+
 ---
 
 ## Guardrails
@@ -556,7 +677,8 @@ These rules exist because a previous project (traffic-control, Jan 2026) failed 
 - Backlog grooming (close stale tasks, update statuses)
 - Test runs and code review on existing PRs
 - Re-running failed CI checks
-- Generating research/grooming tasks for starving projects
+- **Product-strategist for starving projects** (fills backlog autonomously)
+- **Workforce-scoper to convert backlog items into dispatches**
 
 **Requires approval:**
 - New feature implementation
@@ -564,7 +686,6 @@ These rules exist because a previous project (traffic-control, Jan 2026) failed 
 - Merging PRs
 - Priority rebalancing
 - Any single dispatch estimated at >10% of weekly budget
-- Scoping new feature work for a starving project
 
 ### Verification Gate
 
@@ -593,7 +714,7 @@ These rules exist because a previous project (traffic-control, Jan 2026) failed 
 | Budget tracking data unavailable | Estimate from check-in log, flag uncertainty |
 | handler-state.md has parse errors | Back up current file, reconstruct from dispatch/results/blockers directories, flag in briefing |
 | `/test-feature` fails after code-review passes | Run `/debug-loop` on the failing test, then re-run verification gate from step 1. Same 3-round cap applies. |
-| Running on Windows (no tmux) | Always use manual dispatch fallback (copy-paste commands) |
+| tmux not running | Always use manual dispatch fallback (copy-paste commands) |
 
 ## Reminders
 

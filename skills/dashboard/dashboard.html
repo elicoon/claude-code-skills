@@ -3675,21 +3675,24 @@ function parseHandlerState(stateRes) {
     if (targetMatch) state.budget.targetPercent = parseFloat(targetMatch[1]);
   }
 
-  // Parse pending decisions
+  // Parse pending decisions (table: | ID | Project | Question | Options |)
   const decSection = sections.find(s => /pending\s*decision/i.test(s.title));
   if (decSection) {
     state.decisions = [];
-    // Parse table rows: | ID | Title | Reason | Cost |
     const rows = decSection.content.matchAll(/\|\s*([^|]+)\s*\|\s*([^|]+)\s*\|\s*([^|]+)\s*\|(?:\s*([^|]+)\s*\|)?/g);
     for (const row of rows) {
       const id = row[1].trim();
-      const title = row[2].trim();
+      const project = row[2].trim();
+      const question = row[3] ? row[3].trim() : '';
+      const options = row[4] ? row[4].trim() : '';
       if (id.startsWith('---') || id.toLowerCase() === 'id' || /^\*\*/.test(id)) continue;
+      // Skip resolved decisions
+      if (/^resolved:/i.test(options) || /^resolved:/i.test(question)) continue;
       state.decisions.push({
         dispatchId: id,
-        title: title,
-        reason: row[3] ? row[3].trim() : 'user review',
-        cost: row[4] ? row[4].trim() : null,
+        project: project,
+        title: question,
+        reason: options || 'user review',
       });
     }
   }
@@ -3875,7 +3878,8 @@ function renderPipeline(dispatches, state) {
     decHtml += '<span class="decision-desc-text">' + escapeHtml(d.title) + '</span>';
     if (d.reason) {
       const reasonClass = d.reason === 'irreversible' ? 'irreversible' : d.reason === 'budget' ? 'budget' : 'user-review';
-      decHtml += ' <span class="decision-reason ' + reasonClass + '">' + escapeHtml(d.reason) + '</span>';
+      const reasonLabel = d.reason === 'irreversible' ? 'irreversible' : d.reason === 'budget' ? 'budget' : 'needs review';
+      decHtml += ' <span class="decision-reason ' + reasonClass + '">' + escapeHtml(reasonLabel) + '</span>';
     }
     if (d.cost) {
       decHtml += ' <span class="decision-cost">~' + escapeHtml(d.cost) + '</span>';
@@ -3916,6 +3920,8 @@ function renderPipeline(dispatches, state) {
       if (d.evidence.description) {
         decHtml += '<div class="evidence-section"><div class="evidence-label">What worker will do</div><div class="evidence-text">' + escapeHtml(d.evidence.description) + '</div></div>';
       }
+    } else if (d.reason && d.reason !== 'user review') {
+      decHtml += '<div class="evidence-section"><div class="evidence-label">Context</div><div class="evidence-text">' + escapeHtml(d.reason) + '</div></div>';
     }
     decHtml += '</div>'; // decision-evidence
 

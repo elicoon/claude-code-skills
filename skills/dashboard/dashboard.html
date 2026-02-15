@@ -56,6 +56,16 @@
     overflow-x: hidden;
   }
 
+  main { max-width: 100vw; overflow-x: auto; }
+  .kanban-grid { min-width: 0; }
+  .workers-grid { min-width: 0; }
+  .dispatch-kanban { min-width: 0; overflow-x: auto; }
+
+  /* Decision action feedback */
+  .decision-item.decision-approving { background: rgba(63,185,80,0.15); transition: background 0.2s; }
+  .decision-item.decision-rejecting { background: rgba(248,81,73,0.15); transition: background 0.2s; }
+  .decision-item.decision-reworking { background: rgba(210,153,34,0.15); transition: background 0.2s; }
+
   /* Scanline overlay */
   body::after {
     content: '';
@@ -1716,6 +1726,8 @@
     transition: background 0.1s;
   }
   .worker-header:hover { background: rgba(88,166,255,0.03); }
+  .worker-card.idle .worker-header { cursor: default; }
+  .worker-card.idle .worker-header:hover { background: transparent; }
 
   .worker-header-top {
     display: flex;
@@ -2854,7 +2866,8 @@ const statusCommandLabels = {
 const priorityLabels = { 1: 'P1', 2: 'P2', 3: 'P3', 4: 'P4', 5: 'P5' };
 
 function countByStatus(status) {
-  return tasks.filter(t => t.status === status).length;
+  var source = hasActiveFilters() ? getFilteredTasks() : tasks;
+  return source.filter(t => t.status === status).length;
 }
 
 function countByPriority(p) {
@@ -3224,6 +3237,21 @@ function switchView(view) {
   document.querySelectorAll('.view').forEach(function(v) { v.classList.remove('active'); });
   document.querySelector('[data-view="' + view + '"]').classList.add('active');
   document.getElementById('view-' + view).classList.add('active');
+  // Show/hide appropriate filter bars (BUG-5, BUG-7)
+  var filterBar = document.getElementById('filter-bar');
+  var tabBarRight = document.querySelector('.tab-bar-right');
+  if (view === 'kanban' || view === 'command') {
+    filterBar.style.display = '';
+    tabBarRight.style.display = 'none';
+  } else {
+    filterBar.style.display = 'none';
+    tabBarRight.style.display = '';
+  }
+  // Collapse expanded cards when switching tabs (BUG-10)
+  document.querySelectorAll('.expanded').forEach(function(el) {
+    el.classList.remove('expanded');
+    el.setAttribute('aria-expanded', 'false');
+  });
 }
 
 function toggleDrafts(e) {
@@ -3870,8 +3898,8 @@ function renderPipeline(dispatches, state) {
     decHtml += '</div>'; // decision-content
     decHtml += '<div class="decision-actions">';
     const dispId = d.dispatchId || d.id || '';
-    decHtml += '<button class="decision-btn yes" onclick="event.stopPropagation(); approveDispatch(\'' + escapeHtml(dispId) + '\')">Approve</button>';
-    decHtml += '<button class="decision-btn no" onclick="event.stopPropagation(); rejectDispatch(\'' + escapeHtml(dispId) + '\')">Deny</button>';
+    decHtml += '<button class="decision-btn yes" onclick="event.stopPropagation(); this.textContent=\'Approving...\'; this.disabled=true; approveDispatch(\'' + escapeHtml(dispId) + '\')">Approve</button>';
+    decHtml += '<button class="decision-btn no" onclick="event.stopPropagation(); this.textContent=\'Denying...\'; this.disabled=true; rejectDispatch(\'' + escapeHtml(dispId) + '\')">Deny</button>';
     decHtml += '<button class="decision-btn rework" onclick="event.stopPropagation(); toggleRework(this)">Rework</button>';
     decHtml += '</div>';
     decHtml += '</div>'; // decision-top
@@ -4196,6 +4224,18 @@ function applyPipelineFilters() {
     const matchPriority = !priority || cardPriority === priority;
     card.style.display = (matchProject && matchPriority) ? '' : 'none';
   });
+
+  // Also filter backlog tab (BUG-2)
+  var navProject = document.getElementById('pipeline-filter-project').value;
+  var navPriority = document.getElementById('pipeline-filter-priority').value;
+  // Map nav priority format "p1" -> "1" for backlog filter
+  var backlogPriority = navPriority ? navPriority.replace(/^p/i, '') : '';
+  currentFilters.project = navProject;
+  currentFilters.priority = backlogPriority;
+  // Sync backlog filter dropdowns
+  document.getElementById('filter-project').value = navProject;
+  document.getElementById('filter-priority').value = backlogPriority;
+  applyFilters();
 }
 
 // ════════════════════════════════════════════

@@ -39,6 +39,10 @@
     --glow-blue: 0 0 20px rgba(88,166,255,0.15);
     --glow-red: 0 0 20px rgba(248,81,73,0.15);
     --glow-green: 0 0 12px rgba(63,185,80,0.1);
+
+    --status-queued: #d29922;
+    --status-rework: #bc8cff;
+    --glow-amber: 0 0 12px rgba(210,153,34,0.15);
   }
 
   html { font-size: 87.5%; /* 14px at default 16px base, preserves user font prefs */ }
@@ -1043,6 +1047,806 @@
     display: inline-flex;
   }
 
+  /* ══════════════════════════════════
+     TAB BAR (updated for pipeline)
+  ══════════════════════════════════ */
+  .tab-bar-left {
+    display: flex;
+    gap: 0;
+    flex: 1;
+  }
+
+  .tab-bar-right {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .tab kbd {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.3rem; height: 1.3rem;
+    font-size: 0.65rem;
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    color: var(--text-dim);
+    font-family: var(--font-mono);
+  }
+  .tab.active kbd {
+    border-color: rgba(88,166,255,0.3);
+    color: var(--status-progress);
+  }
+
+  .tab-badge {
+    font-size: 0.65rem;
+    padding: 0.1rem 0.4rem;
+    border-radius: 8px;
+    font-weight: 600;
+  }
+  .tab-badge.pending { background: rgba(210,153,34,0.15); color: var(--status-queued); }
+  .tab-badge.live { background: rgba(88,166,255,0.12); color: var(--status-progress); }
+
+  /* SSE Indicator */
+  .sse-indicator {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--text-dim);
+  }
+
+  .sse-dot {
+    width: 6px; height: 6px; border-radius: 50%;
+    background: var(--status-done);
+    animation: sse-pulse 2s ease-in-out infinite;
+  }
+  .sse-dot.disconnected {
+    background: var(--status-blocked);
+    animation: none;
+  }
+
+  @keyframes sse-pulse {
+    0%, 100% { opacity: 0.5; }
+    50% { opacity: 1; }
+  }
+
+  /* ══════════════════════════════════
+     BUDGET BAR
+  ══════════════════════════════════ */
+  .budget-strip {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 0.6rem 1rem;
+    background: var(--bg-surface);
+    border: 1px solid var(--border-subtle);
+    border-radius: 4px;
+    margin-bottom: 1.25rem;
+    font-size: 0.78rem;
+  }
+
+  .budget-label {
+    color: var(--text-secondary);
+    white-space: nowrap;
+    text-transform: uppercase;
+    font-size: 0.68rem;
+    letter-spacing: 0.06em;
+  }
+
+  .budget-bar-track {
+    flex: 1;
+    height: 8px;
+    background: var(--bg-elevated);
+    border-radius: 4px;
+    position: relative;
+  }
+
+  .budget-bar-fill {
+    height: 100%;
+    border-radius: 4px;
+    background: linear-gradient(90deg, var(--status-progress), var(--status-done));
+    width: 0%;
+    transition: width 0.6s ease;
+    position: relative;
+    z-index: 2;
+  }
+
+  .budget-bar-target {
+    position: absolute;
+    top: 0;
+    left: 0;
+    height: 100%;
+    border-radius: 4px;
+    border: 1.5px dashed rgba(210,153,34,0.5);
+    background: rgba(210,153,34,0.04);
+    width: 0%;
+    z-index: 1;
+  }
+
+  .budget-bar-target-label {
+    position: absolute;
+    top: -14px;
+    right: -2px;
+    font-size: 0.58rem;
+    color: var(--status-queued);
+    white-space: nowrap;
+    letter-spacing: 0.03em;
+  }
+
+  .budget-pct {
+    color: var(--text-primary);
+    font-weight: 500;
+    font-size: 0.82rem;
+  }
+
+  .budget-detail {
+    color: var(--text-dim);
+    font-size: 0.72rem;
+  }
+
+  .budget-detail .under { color: var(--status-queued); }
+  .budget-detail .over { color: var(--status-blocked); }
+
+  /* ══════════════════════════════════
+     DECISIONS PANEL
+  ══════════════════════════════════ */
+  .decisions-panel {
+    margin-bottom: 1.25rem;
+    background: var(--bg-surface);
+    border: 1px solid rgba(210,153,34,0.25);
+    border-radius: 4px;
+    overflow: hidden;
+    box-shadow: 0 0 24px rgba(210,153,34,0.06);
+  }
+
+  .decisions-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.6rem 0.85rem;
+    background: rgba(210,153,34,0.07);
+    border-bottom: 1px solid rgba(210,153,34,0.15);
+  }
+
+  .decisions-title {
+    font-size: 0.75rem;
+    font-weight: 500;
+    color: var(--status-queued);
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+  }
+
+  .decision-item {
+    padding: 0.65rem 0.85rem;
+    border-bottom: 1px solid var(--border-subtle);
+    cursor: pointer;
+    transition: background 0.1s;
+  }
+  .decision-item:last-child { border-bottom: none; }
+  .decision-item:hover { background: rgba(210,153,34,0.03); }
+
+  .decision-top {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.75rem;
+  }
+
+  .decision-number {
+    font-size: 0.72rem;
+    font-weight: 600;
+    color: var(--status-queued);
+    min-width: 1.5rem;
+    padding-top: 0.1rem;
+  }
+
+  .decision-content { flex: 1; }
+
+  .decision-desc {
+    font-size: 0.78rem;
+    color: var(--text-primary);
+    line-height: 1.4;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+    margin-bottom: 0.3rem;
+  }
+
+  .decision-desc-text { flex-shrink: 0; }
+
+  .decision-reason {
+    display: inline-block;
+    font-size: 0.62rem;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    padding: 0.1rem 0.4rem;
+    border-radius: 2px;
+  }
+
+  .decision-reason.user-review {
+    color: var(--status-queued);
+    background: rgba(210,153,34,0.1);
+    border: 1px solid rgba(210,153,34,0.2);
+  }
+  .decision-reason.irreversible {
+    color: var(--status-blocked);
+    background: rgba(248,81,73,0.08);
+    border: 1px solid rgba(248,81,73,0.2);
+  }
+  .decision-reason.budget {
+    color: var(--status-progress);
+    background: rgba(88,166,255,0.08);
+    border: 1px solid rgba(88,166,255,0.2);
+  }
+
+  .decision-cost {
+    font-size: 0.62rem;
+    color: var(--text-dim);
+  }
+
+  .link-desc {
+    font-size: 0.68rem;
+    color: var(--text-secondary);
+  }
+
+  .decision-links {
+    margin-top: 0.35rem;
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+  }
+
+  .decision-link {
+    font-size: 0.68rem;
+    color: var(--status-progress);
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    padding: 0.15rem 0.4rem;
+    border: 1px solid rgba(88,166,255,0.2);
+    border-radius: 3px;
+    transition: all 0.15s;
+  }
+  .decision-link:hover {
+    background: rgba(88,166,255,0.08);
+    border-color: rgba(88,166,255,0.4);
+  }
+
+  .start-server-btn {
+    font-size: 0.68rem;
+    color: var(--status-progress);
+    background: transparent;
+    border: 1px solid rgba(88,166,255,0.2);
+    border-radius: 3px;
+    padding: 0.15rem 0.4rem;
+    cursor: pointer;
+    font-family: var(--font-mono);
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    transition: all 0.15s;
+  }
+  .start-server-btn:hover {
+    background: rgba(88,166,255,0.08);
+    border-color: rgba(88,166,255,0.4);
+  }
+  .start-server-btn.loading {
+    color: var(--text-dim);
+    border-color: var(--border);
+    pointer-events: none;
+  }
+  .start-server-btn.loading::after {
+    content: '';
+    width: 8px; height: 8px;
+    border: 1.5px solid var(--text-dim);
+    border-top-color: var(--status-progress);
+    border-radius: 50%;
+    animation: spin 0.6s linear infinite;
+    margin-left: 0.25rem;
+  }
+  .start-server-btn.ready {
+    color: var(--status-done);
+    border-color: rgba(63,185,80,0.3);
+  }
+
+  .decision-actions {
+    display: flex;
+    gap: 0.35rem;
+    flex-shrink: 0;
+    padding-top: 0.1rem;
+  }
+
+  .decision-btn {
+    padding: 0.25rem 0.55rem;
+    border: 1px solid;
+    border-radius: 3px;
+    background: transparent;
+    font-family: var(--font-mono);
+    font-size: 0.65rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+
+  .decision-btn.yes {
+    color: var(--status-done);
+    border-color: rgba(63,185,80,0.3);
+  }
+  .decision-btn.yes:hover { background: rgba(63,185,80,0.12); border-color: rgba(63,185,80,0.5); }
+
+  .decision-btn.no {
+    color: var(--status-blocked);
+    border-color: rgba(248,81,73,0.3);
+  }
+  .decision-btn.no:hover { background: rgba(248,81,73,0.12); border-color: rgba(248,81,73,0.5); }
+
+  .decision-btn.rework {
+    color: var(--status-rework);
+    border-color: rgba(188,140,255,0.3);
+  }
+  .decision-btn.rework:hover { background: rgba(188,140,255,0.1); border-color: rgba(188,140,255,0.5); }
+
+  /* Expandable evidence section */
+  .decision-evidence {
+    display: none;
+    margin-top: 0.6rem;
+    padding-top: 0.6rem;
+    border-top: 1px solid var(--border-subtle);
+    font-size: 0.72rem;
+    line-height: 1.55;
+  }
+  .decision-item.expanded .decision-evidence { display: block; }
+
+  .evidence-section {
+    margin-bottom: 0.5rem;
+  }
+  .evidence-section:last-child { margin-bottom: 0; }
+
+  .evidence-label {
+    font-size: 0.65rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--text-dim);
+    margin-bottom: 0.15rem;
+  }
+
+  .evidence-text {
+    color: var(--text-secondary);
+  }
+  .evidence-text a {
+    color: var(--status-progress);
+    text-decoration: none;
+  }
+  .evidence-text a:hover { text-decoration: underline; }
+
+  .evidence-check {
+    color: var(--status-done);
+  }
+  .evidence-risk {
+    color: var(--status-queued);
+  }
+
+  /* Rework input in decisions */
+  .rework-input {
+    display: none;
+    margin-top: 0.5rem;
+  }
+  .rework-input.visible {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+  }
+  .rework-input textarea {
+    background: var(--bg-void);
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    color: var(--text-primary);
+    font-family: var(--font-mono);
+    font-size: 0.72rem;
+    padding: 0.5rem;
+    resize: vertical;
+    min-height: 3rem;
+    outline: none;
+  }
+  .rework-input textarea:focus { border-color: rgba(188,140,255,0.4); }
+  .rework-input .send-btn {
+    align-self: flex-end;
+    padding: 0.3rem 0.8rem;
+    background: rgba(188,140,255,0.1);
+    border: 1px solid rgba(188,140,255,0.3);
+    border-radius: 3px;
+    color: var(--status-rework);
+    font-family: var(--font-mono);
+    font-size: 0.68rem;
+    cursor: pointer;
+  }
+
+  /* ══════════════════════════════════
+     DISPATCH KANBAN
+  ══════════════════════════════════ */
+  .dispatch-kanban {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 1rem;
+    align-items: start;
+  }
+
+  .dispatch-column {
+    background: var(--bg-primary);
+    border: 1px solid var(--border-subtle);
+    border-radius: 4px;
+    min-height: 200px;
+  }
+
+  .column-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.6rem 0.75rem;
+    border-bottom: 1px solid var(--border-subtle);
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--text-secondary);
+  }
+
+  .column-header .count {
+    font-weight: 600;
+    font-size: 0.68rem;
+    padding: 0.1rem 0.35rem;
+    border-radius: 3px;
+    background: var(--bg-elevated);
+  }
+
+  .column-cards {
+    padding: 0.5rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  /* Dispatch cards */
+  .dispatch-card {
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 0.65rem 0.75rem;
+    cursor: pointer;
+    transition: all 0.15s;
+    position: relative;
+  }
+  .dispatch-card:hover {
+    border-color: rgba(88,166,255,0.3);
+    transform: translateY(-1px);
+    box-shadow: var(--glow-blue);
+  }
+  .dispatch-card.expanded {
+    background: var(--bg-elevated);
+    border-color: rgba(88,166,255,0.25);
+  }
+
+  .card-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 0.35rem;
+  }
+
+  .card-project {
+    font-size: 0.65rem;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--text-dim);
+  }
+
+  .card-priority {
+    font-size: 0.6rem;
+    font-weight: 600;
+    padding: 0.05rem 0.3rem;
+    border-radius: 2px;
+    border: 1px solid;
+  }
+  .card-priority.p1 { color: var(--p1); border-color: rgba(248,81,73,0.3); }
+  .card-priority.p2 { color: var(--p2); border-color: rgba(210,153,34,0.3); }
+  .card-priority.p3 { color: var(--p3); border-color: rgba(88,166,255,0.3); }
+  .card-priority.p4 { color: var(--p4); border-color: rgba(122,141,162,0.3); }
+  .card-priority.p5 { color: var(--p5); border-color: rgba(61,79,99,0.3); }
+
+  .card-title {
+    font-size: 0.82rem;
+    font-weight: 500;
+    color: var(--text-primary);
+    margin-bottom: 0.35rem;
+    line-height: 1.35;
+  }
+
+  .card-meta {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    font-size: 0.68rem;
+    color: var(--text-dim);
+  }
+
+  /* Expanded dispatch card details */
+  .dispatch-card .card-details {
+    display: none;
+    margin-top: 0.6rem;
+    padding-top: 0.6rem;
+    border-top: 1px solid var(--border-subtle);
+    font-size: 0.75rem;
+    line-height: 1.55;
+  }
+  .dispatch-card.expanded .card-details { display: block; }
+
+  .dispatch-card .card-details dt {
+    color: var(--text-dim);
+    font-size: 0.68rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-top: 0.5rem;
+  }
+  .dispatch-card .card-details dt:first-child { margin-top: 0; }
+  .dispatch-card .card-details dd {
+    color: var(--text-secondary);
+    margin-top: 0.15rem;
+  }
+
+  /* Stop button on kanban cards */
+  .card-actions {
+    display: none;
+    margin-top: 0.6rem;
+  }
+  .dispatch-card.expanded .card-actions { display: flex; }
+
+  .stop-btn {
+    padding: 0.3rem 0.7rem;
+    border: 1px solid rgba(248,81,73,0.3);
+    border-radius: 3px;
+    background: transparent;
+    color: var(--status-blocked);
+    font-family: var(--font-mono);
+    font-size: 0.65rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.15s;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+  .stop-btn:hover {
+    background: rgba(248,81,73,0.1);
+    border-color: rgba(248,81,73,0.5);
+    box-shadow: var(--glow-red);
+  }
+
+  /* Result badge */
+  .result-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    font-size: 0.65rem;
+    padding: 0.15rem 0.4rem;
+    border-radius: 3px;
+    font-weight: 500;
+  }
+  .result-badge.success {
+    background: rgba(63,185,80,0.1);
+    color: var(--status-done);
+    border: 1px solid rgba(63,185,80,0.2);
+  }
+  .result-badge.pr-ready {
+    background: rgba(88,166,255,0.1);
+    color: var(--status-progress);
+    border: 1px solid rgba(88,166,255,0.2);
+  }
+
+  /* ══════════════════════════════════
+     PRIORITY ALIGNMENT TABLE
+  ══════════════════════════════════ */
+  .handler-panel {
+    margin-top: 1.25rem;
+    background: var(--bg-surface);
+    border: 1px solid var(--border-subtle);
+    border-radius: 4px;
+    padding: 0.85rem 1rem;
+  }
+
+  .handler-panel-title {
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--text-dim);
+    margin-bottom: 0.6rem;
+  }
+
+  .priority-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.75rem;
+  }
+  .priority-table th {
+    text-align: left;
+    color: var(--text-dim);
+    font-weight: 400;
+    font-size: 0.68rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    padding: 0.3rem 0.5rem;
+    border-bottom: 1px solid var(--border-subtle);
+  }
+  .priority-table td {
+    padding: 0.35rem 0.5rem;
+    color: var(--text-secondary);
+    border-bottom: 1px solid rgba(26,35,50,0.5);
+  }
+  .priority-table td:first-child {
+    font-weight: 500;
+    color: var(--text-primary);
+  }
+  .priority-table .project-priority {
+    font-weight: 600;
+    font-size: 0.68rem;
+  }
+
+  /* ══════════════════════════════════
+     WORKERS VIEW
+  ══════════════════════════════════ */
+  .workers-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1rem;
+    align-items: start;
+  }
+
+  .worker-card {
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    overflow: hidden;
+  }
+
+  .worker-header {
+    padding: 0.65rem 0.85rem;
+    cursor: pointer;
+    transition: background 0.1s;
+  }
+  .worker-header:hover { background: rgba(88,166,255,0.03); }
+
+  .worker-header-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 0.3rem;
+  }
+
+  .worker-id {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .worker-status-dot {
+    width: 7px; height: 7px; border-radius: 50%;
+    background: var(--status-progress);
+    animation: worker-pulse 1.5s ease-in-out infinite;
+  }
+
+  @keyframes worker-pulse {
+    0%, 100% { opacity: 0.5; box-shadow: none; }
+    50% { opacity: 1; box-shadow: 0 0 6px rgba(88,166,255,0.5); }
+  }
+
+  .worker-name {
+    font-size: 0.78rem;
+    font-weight: 500;
+    color: var(--text-primary);
+  }
+
+  .worker-project {
+    font-size: 0.68rem;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+
+  .worker-stats {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    font-size: 0.68rem;
+    color: var(--text-secondary);
+  }
+
+  .worker-elapsed {
+    color: var(--status-progress);
+    font-weight: 500;
+  }
+
+  .worker-tokens {
+    color: var(--text-dim);
+  }
+
+  .worker-model {
+    color: var(--status-rework);
+    font-size: 0.62rem;
+    padding: 0.1rem 0.35rem;
+    border: 1px solid rgba(188,140,255,0.2);
+    border-radius: 2px;
+    letter-spacing: 0.03em;
+  }
+
+  .worker-goal {
+    font-size: 0.72rem;
+    color: var(--text-secondary);
+    margin-bottom: 0.4rem;
+    line-height: 1.35;
+  }
+
+  /* Acceptance criteria in worker */
+  .worker-criteria {
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+  }
+
+  .criteria-item {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-size: 0.68rem;
+    color: var(--text-dim);
+  }
+
+  .criteria-check {
+    width: 12px; height: 12px;
+    border: 1.5px solid var(--border);
+    border-radius: 2px;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .criteria-check.done {
+    border-color: var(--status-done);
+    background: rgba(63,185,80,0.1);
+  }
+  .criteria-check.done::after {
+    content: '\2713';
+    font-size: 0.55rem;
+    color: var(--status-done);
+  }
+  .criteria-item.met { color: var(--text-secondary); }
+
+  /* Collapsible output — toggled by clicking header */
+  .worker-output {
+    display: none;
+    background: var(--bg-void);
+    border-top: 1px solid var(--border-subtle);
+    padding: 0.6rem 0.85rem;
+    font-size: 0.72rem;
+    line-height: 1.6;
+    max-height: 220px;
+    overflow-y: auto;
+    color: var(--text-secondary);
+  }
+  .worker-card.log-open .worker-output { display: block; }
+
+  .worker-output .line { white-space: pre-wrap; word-break: break-all; }
+  .worker-output .line.tool { color: var(--status-progress); }
+  .worker-output .line.result { color: var(--text-dim); }
+  .worker-output .line.success { color: var(--status-done); }
+  .worker-output .line.error { color: var(--status-blocked); }
+  .worker-output .line.timestamp { color: var(--text-dim); font-size: 0.65rem; }
+
+  /* Idle worker */
+  .worker-card.idle { opacity: 0.5; border-style: dashed; }
+  .worker-card.idle .worker-status-dot { background: var(--text-dim); animation: none; }
+
   .filter-shortcut-hint {
     font-size: 0.6rem;
     color: var(--text-dim);
@@ -1099,17 +1903,39 @@
   <div class="header-meta">
     <span id="header-meta-text"></span>
     <span id="data-source-badge"></span>
+    <div class="sse-indicator" id="sse-indicator" style="display:none;">
+      <div class="sse-dot" id="sse-dot"></div>
+      <span id="sse-label">live</span>
+    </div>
     <button class="refresh-btn" id="refresh-btn" onclick="refreshData()" title="Reload backlog data (R)">Refresh</button>
   </div>
 </header>
 
 <nav class="tab-bar">
-  <button class="tab active" data-view="kanban" onclick="switchView('kanban')">
-    <span class="tab-label"><span class="tab-letter">B</span> Kanban Board</span>
-  </button>
-  <button class="tab" data-view="command" onclick="switchView('command')">
-    <span class="tab-label"><span class="tab-letter">C</span> Command Center</span>
-  </button>
+  <div class="tab-bar-left">
+    <button class="tab active" data-view="kanban" onclick="switchView('kanban')">
+      <span class="tab-label"><kbd>B</kbd> Backlog</span>
+    </button>
+    <button class="tab" data-view="pipeline" onclick="switchView('pipeline')">
+      <span class="tab-label"><kbd>P</kbd> Pipeline <span class="tab-badge pending" id="pipeline-badge" style="display:none;">0</span></span>
+    </button>
+    <button class="tab" data-view="workers" onclick="switchView('workers')">
+      <span class="tab-label"><kbd>W</kbd> Workers <span class="tab-badge live" id="workers-badge" style="display:none;">0</span></span>
+    </button>
+  </div>
+  <div class="tab-bar-right">
+    <select class="filter-select" id="pipeline-filter-project" aria-label="Filter by project">
+      <option value="">All projects</option>
+    </select>
+    <select class="filter-select" id="pipeline-filter-priority" aria-label="Filter by priority">
+      <option value="">All priorities</option>
+      <option value="p1">P1</option>
+      <option value="p2">P2</option>
+      <option value="p3">P3</option>
+      <option value="p4">P4</option>
+      <option value="p5">P5</option>
+    </select>
+  </div>
 </nav>
 
 <div class="filter-bar" id="filter-bar">
@@ -1152,6 +1978,66 @@
   </div>
 </div>
 <div class="view" id="view-command"></div>
+
+<!-- ═══ PIPELINE VIEW ═══ -->
+<div class="view" id="view-pipeline">
+  <!-- Budget bar -->
+  <div class="budget-strip">
+    <span class="budget-label">Weekly budget</span>
+    <div class="budget-bar-track">
+      <div class="budget-bar-target"><span class="budget-bar-target-label"></span></div>
+      <div class="budget-bar-fill"></div>
+    </div>
+    <span class="budget-pct"></span>
+    <span class="budget-detail"></span>
+  </div>
+
+  <!-- Decisions panel -->
+  <div class="decisions-panel">
+    <div class="decisions-header">
+      <div class="decisions-title">
+        <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M8 1.5a6.5 6.5 0 100 13 6.5 6.5 0 000-13zM0 8a8 8 0 1116 0A8 8 0 010 8zm9 3a1 1 0 11-2 0 1 1 0 012 0zm-.25-6.25a.75.75 0 00-1.5 0v3.5a.75.75 0 001.5 0v-3.5z"/></svg>
+        <span id="decisions-count-label">0 decisions awaiting approval</span>
+      </div>
+    </div>
+    <div id="decisions-list"><!-- JS fills --></div>
+  </div>
+
+  <!-- Dispatch kanban -->
+  <div class="dispatch-kanban">
+    <div class="dispatch-column" data-status="queued">
+      <div class="column-header"><span>Queued</span><span class="count">0</span></div>
+      <div class="column-cards"></div>
+    </div>
+    <div class="dispatch-column" data-status="active">
+      <div class="column-header"><span>Active</span><span class="count">0</span></div>
+      <div class="column-cards"></div>
+    </div>
+    <div class="dispatch-column" data-status="blocked">
+      <div class="column-header"><span>Blocked</span><span class="count">0</span></div>
+      <div class="column-cards"></div>
+    </div>
+    <div class="dispatch-column" data-status="completed">
+      <div class="column-header"><span>Completed</span><span class="count">0</span></div>
+      <div class="column-cards"></div>
+    </div>
+  </div>
+
+  <!-- Priority alignment -->
+  <div class="handler-panel">
+    <div class="handler-panel-title">Priority alignment</div>
+    <table class="priority-table">
+      <thead><tr><th>Project</th><th>Priority</th><th>Active</th><th>Queued</th><th>Status</th></tr></thead>
+      <tbody id="priority-body"></tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ═══ WORKERS VIEW ═══ -->
+<div class="view" id="view-workers">
+  <div class="workers-grid" id="workers-grid"><!-- JS fills --></div>
+</div>
+
 </main>
 
 <script>
@@ -2332,7 +3218,8 @@ function renderCommandCenter() {
 //  INTERACTIONS
 // ════════════════════════════════════════════
 function switchView(view) {
-  if (view !== 'kanban' && view !== 'command') return;
+  const validViews = ['kanban', 'command', 'pipeline', 'workers'];
+  if (!validViews.includes(view)) return;
   document.querySelectorAll('.tab').forEach(function(t) { t.classList.remove('active'); });
   document.querySelectorAll('.view').forEach(function(v) { v.classList.remove('active'); });
   document.querySelector('[data-view="' + view + '"]').classList.add('active');
@@ -2463,6 +3350,8 @@ document.addEventListener('keydown', function(e) {
   if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'SELECT') return;
   if (e.key === 'b' || e.key === 'B') switchView('kanban');
   if (e.key === 'c' || e.key === 'C') switchView('command');
+  if (e.key === 'p' || e.key === 'P') switchView('pipeline');
+  if (e.key === 'w' || e.key === 'W') switchView('workers');
   if (e.key === 'r' || e.key === 'R') refreshData();
   if (e.key === '/') {
     e.preventDefault();
@@ -2587,6 +3476,822 @@ async function refreshData() {
 }
 
 // ════════════════════════════════════════════
+//  PIPELINE & WORKERS: SSE + DATA FETCHING
+// ════════════════════════════════════════════
+let sseConnection = null;
+let sseLastEventTime = null;
+let sseTimerInterval = null;
+let pipelineDispatches = [];
+let pipelineState = null;
+let workersData = [];
+
+function connectSSE() {
+  if (sseConnection) {
+    sseConnection.close();
+  }
+  try {
+    sseConnection = new EventSource('/api/events');
+    const indicator = document.getElementById('sse-indicator');
+    const dot = document.getElementById('sse-dot');
+    const label = document.getElementById('sse-label');
+
+    sseConnection.onopen = function() {
+      indicator.style.display = '';
+      dot.classList.remove('disconnected');
+      label.textContent = 'live';
+      sseLastEventTime = Date.now();
+    };
+
+    // Handle named events from SSE
+    sseConnection.addEventListener('dispatches:changed', function() {
+      sseLastEventTime = Date.now();
+      fetchPipelineData();
+    });
+    sseConnection.addEventListener('results:changed', function() {
+      sseLastEventTime = Date.now();
+      fetchPipelineData();
+    });
+    sseConnection.addEventListener('blockers:changed', function() {
+      sseLastEventTime = Date.now();
+      fetchPipelineData();
+    });
+    sseConnection.addEventListener('state:changed', function() {
+      sseLastEventTime = Date.now();
+      fetchPipelineData();
+    });
+    sseConnection.addEventListener('workers:update', function(e) {
+      sseLastEventTime = Date.now();
+      try {
+        const data = JSON.parse(e.data);
+        workersData = data.workers || [];
+        workersData.forEach(function(w) {
+          if (typeof w.output === 'string') w.output = w.output.split('\n');
+          if (!w.status) w.status = w.active ? 'active' : 'idle';
+          if (typeof w.elapsed === 'string') {
+            const hMatch = w.elapsed.match(/(\d+)h/);
+            const mMatch = w.elapsed.match(/(\d+)m/);
+            w.elapsed = (hMatch ? parseInt(hMatch[1]) * 3600 : 0) + (mMatch ? parseInt(mMatch[1]) * 60 : 0);
+          }
+        });
+        renderWorkers(workersData);
+      } catch (err) {}
+    });
+    // Fallback for generic messages
+    sseConnection.onmessage = function(e) {
+      sseLastEventTime = Date.now();
+    };
+
+    sseConnection.onerror = function() {
+      dot.classList.add('disconnected');
+      label.textContent = 'disconnected';
+      // Auto-reconnect after 5s
+      setTimeout(function() {
+        if (sseConnection && sseConnection.readyState === EventSource.CLOSED) {
+          connectSSE();
+        }
+      }, 5000);
+    };
+
+    // Update SSE timer every second
+    if (sseTimerInterval) clearInterval(sseTimerInterval);
+    sseTimerInterval = setInterval(function() {
+      if (sseLastEventTime) {
+        const ago = Math.floor((Date.now() - sseLastEventTime) / 1000);
+        label.textContent = 'last event ' + ago + 's ago';
+      }
+    }, 1000);
+  } catch (e) {
+    // SSE not available (file:// protocol, etc.)
+  }
+}
+
+async function fetchPipelineData() {
+  try {
+    const [dispatchRes, stateRes] = await Promise.all([
+      fetch('/api/dispatches').then(r => r.ok ? r.json() : { dispatches: [], results: [], blockers: [] }),
+      fetch('/api/handler-state').then(r => r.ok ? r.json() : null),
+    ]);
+    // Merge results and blockers into dispatch objects
+    const dispatchData = dispatchRes.dispatches || [];
+    const results = dispatchRes.results || [];
+    const blockers = dispatchRes.blockers || [];
+
+    // Create lookup maps
+    const resultMap = {};
+    results.forEach(function(r) {
+      // Match result to dispatch by id prefix
+      const dispId = r.dispatch || r.id;
+      resultMap[dispId] = r;
+    });
+    const blockerMap = {};
+    blockers.forEach(function(b) {
+      const dispId = b.dispatch || b.id;
+      blockerMap[dispId] = b;
+    });
+
+    // Enrich dispatch objects
+    dispatchData.forEach(function(d) {
+      if (resultMap[d.id]) {
+        d.result = resultMap[d.id];
+        d.status = 'completed';
+      }
+      if (blockerMap[d.id]) {
+        d.blocker = blockerMap[d.id].blocker || blockerMap[d.id].title;
+        d.status = d.status || 'blocked';
+      }
+      // Extract fields from metadata if present
+      if (d.metadata) {
+        if (!d.project && d.metadata.project) d.project = d.metadata.project;
+        if (!d.priority && d.metadata.priority) {
+          const pm = d.metadata.priority.match(/(\d)/);
+          if (pm) d.priority = parseInt(pm[1]);
+        }
+        if (d.metadata.needs_user_review && /yes/i.test(d.metadata.needs_user_review)) {
+          d.needsReview = true;
+        }
+        if (d.metadata.worker) d.workerName = d.metadata.worker;
+        if (d.metadata.status) {
+          const ms = d.metadata.status.toLowerCase();
+          if (ms.includes('active') || ms.includes('running')) d.status = d.status || 'active';
+          if (ms.includes('queued') || ms.includes('pending')) d.status = d.status || 'queued';
+        }
+      }
+    });
+
+    pipelineDispatches = dispatchData;
+    pipelineState = parseHandlerState(stateRes);
+    renderPipeline(pipelineDispatches, pipelineState);
+  } catch (e) {
+    // Silently fail if APIs not available
+  }
+}
+
+function parseHandlerState(stateRes) {
+  if (!stateRes) return null;
+  const state = {};
+  const sections = stateRes.sections || [];
+  const raw = stateRes.raw || '';
+
+  // Parse budget info
+  const budgetSection = sections.find(s => /budget/i.test(s.title));
+  if (budgetSection) {
+    state.budget = {};
+    const pctMatch = budgetSection.content.match(/(\d+(?:\.\d+)?)%/);
+    if (pctMatch) state.budget.percentUsed = parseFloat(pctMatch[1]);
+    const daysMatch = budgetSection.content.match(/(\d+(?:\.\d+)?)\s*days?\s*remaining/i);
+    if (daysMatch) state.budget.daysRemaining = parseFloat(daysMatch[1]);
+    if (/under[- ]?paced/i.test(budgetSection.content)) state.budget.pace = 'under-paced';
+    else if (/over[- ]?paced/i.test(budgetSection.content)) state.budget.pace = 'over-paced';
+    else if (/on[- ]?track/i.test(budgetSection.content)) state.budget.pace = 'on-track';
+    const targetMatch = budgetSection.content.match(/target[:\s]*(\d+(?:\.\d+)?)%/i);
+    if (targetMatch) state.budget.targetPercent = parseFloat(targetMatch[1]);
+  }
+
+  // Parse pending decisions
+  const decSection = sections.find(s => /pending\s*decision/i.test(s.title));
+  if (decSection) {
+    state.decisions = [];
+    // Parse table rows: | ID | Title | Reason | Cost |
+    const rows = decSection.content.matchAll(/\|\s*([^|]+)\s*\|\s*([^|]+)\s*\|\s*([^|]+)\s*\|(?:\s*([^|]+)\s*\|)?/g);
+    for (const row of rows) {
+      const id = row[1].trim();
+      const title = row[2].trim();
+      if (id.startsWith('---') || id.toLowerCase() === 'id' || /^\*\*/.test(id)) continue;
+      state.decisions.push({
+        dispatchId: id,
+        title: title,
+        reason: row[3] ? row[3].trim() : 'user review',
+        cost: row[4] ? row[4].trim() : null,
+      });
+    }
+  }
+
+  // Parse queued dispatches for "Needs User Review?" column
+  const queuedSection = sections.find(s => /queued\s*dispatch/i.test(s.title));
+  if (queuedSection) {
+    const qRows = queuedSection.content.matchAll(/\|\s*([^|]+)\s*\|\s*([^|]+)\s*\|\s*([^|]+)\s*\|\s*([^|]+)\s*\|\s*([^|]+)\s*\|/g);
+    if (!state.decisions) state.decisions = [];
+    for (const row of qRows) {
+      const id = row[1].trim();
+      if (id.startsWith('---') || id.toLowerCase() === 'id' || /^\*\*/.test(id)) continue;
+      const needsReview = row[5] ? row[5].trim() : '';
+      if (/yes/i.test(needsReview)) {
+        if (!state.decisions.find(d => d.dispatchId === id)) {
+          state.decisions.push({
+            dispatchId: id,
+            title: row[2] ? row[2].trim() : id,
+            reason: 'user review',
+          });
+        }
+      }
+    }
+  }
+
+  // Parse active dispatches
+  const activeSection = sections.find(s => /active\s*dispatch/i.test(s.title));
+  if (activeSection) {
+    state.activeDispatches = [];
+    const aRows = activeSection.content.matchAll(/\|\s*([^|]+)\s*\|\s*([^|]+)\s*\|/g);
+    for (const row of aRows) {
+      const id = row[1].trim();
+      if (id.startsWith('---') || id.toLowerCase() === 'id' || /^\*\*/.test(id)) continue;
+      state.activeDispatches.push({ id });
+    }
+  }
+
+  // Parse projects if available
+  const projSection = sections.find(s => /project|priority\s*align/i.test(s.title));
+  if (projSection) {
+    state.projects = [];
+    const pRows = projSection.content.matchAll(/\|\s*([^|]+)\s*\|\s*([^|]+)\s*\|\s*([^|]+)\s*\|/g);
+    for (const row of pRows) {
+      const name = row[1].trim();
+      if (name.startsWith('---') || name.toLowerCase() === 'project' || /^\*\*/.test(name)) continue;
+      const priMatch = row[2].trim().match(/(\d)/);
+      state.projects.push({
+        name,
+        priority: priMatch ? parseInt(priMatch[1]) : 5,
+        status: row[3] ? row[3].trim() : '',
+      });
+    }
+  }
+
+  return state;
+}
+
+async function fetchWorkers() {
+  try {
+    const res = await fetch('/api/workers');
+    if (res.ok) {
+      const data = await res.json();
+      workersData = data.workers || [];
+      // Parse output strings into arrays if needed
+      workersData.forEach(function(w) {
+        if (typeof w.output === 'string') {
+          w.output = w.output.split('\n');
+        }
+        if (!w.status) w.status = w.active ? 'active' : 'idle';
+        if (typeof w.elapsed === 'string') {
+          // Convert "12m" or "1h 5m" to seconds for formatElapsed
+          const hMatch = w.elapsed.match(/(\d+)h/);
+          const mMatch = w.elapsed.match(/(\d+)m/);
+          w.elapsed = (hMatch ? parseInt(hMatch[1]) * 3600 : 0) + (mMatch ? parseInt(mMatch[1]) * 60 : 0);
+        }
+      });
+      renderWorkers(workersData);
+    }
+  } catch (e) {
+    // Silently fail
+  }
+}
+
+// ════════════════════════════════════════════
+//  PIPELINE: RENDERING
+// ════════════════════════════════════════════
+function formatElapsed(seconds) {
+  if (!seconds && seconds !== 0) return '';
+  const m = Math.floor(seconds / 60);
+  const s = Math.floor(seconds % 60);
+  return m + 'm ' + s + 's';
+}
+
+function formatTimeAgo(dateStr) {
+  if (!dateStr) return '';
+  const then = new Date(dateStr);
+  const now = Date.now();
+  const diffMs = now - then.getTime();
+  if (diffMs < 0) return 'just now';
+  const diffMin = Math.floor(diffMs / 60000);
+  if (diffMin < 60) return diffMin + 'm ago';
+  const diffH = Math.floor(diffMin / 60);
+  if (diffH < 24) return diffH + 'h ago';
+  const diffD = Math.floor(diffH / 24);
+  return diffD + 'd ago';
+}
+
+function renderPipeline(dispatches, state) {
+  // --- Budget bar ---
+  const budgetPct = document.querySelector('#view-pipeline .budget-pct');
+  const budgetFill = document.querySelector('#view-pipeline .budget-bar-fill');
+  const budgetDetail = document.querySelector('#view-pipeline .budget-detail');
+  const budgetTarget = document.querySelector('#view-pipeline .budget-bar-target');
+  const budgetTargetLabel = document.querySelector('#view-pipeline .budget-bar-target-label');
+
+  if (state && state.budget) {
+    const b = state.budget;
+    const pct = b.percentUsed || 0;
+    budgetPct.textContent = pct + '%';
+    budgetFill.style.width = Math.min(pct, 100) + '%';
+    const detail = [];
+    if (b.daysRemaining != null) detail.push(b.daysRemaining + ' days remaining');
+    if (b.pace) {
+      const cls = b.pace === 'over-paced' ? 'over' : 'under';
+      detail.push('<span class="' + cls + '">' + escapeHtml(b.pace) + '</span>');
+    }
+    budgetDetail.innerHTML = detail.join(' &middot; ');
+    if (b.targetPercent != null) {
+      budgetTarget.style.width = b.targetPercent + '%';
+      budgetTargetLabel.textContent = 'target ' + b.targetPercent + '%';
+    }
+  } else {
+    budgetPct.textContent = '--';
+    budgetFill.style.width = '0%';
+    budgetDetail.textContent = 'No budget data';
+  }
+
+  // --- Decisions panel ---
+  const decisionsList = document.getElementById('decisions-list');
+  const decisions = [];
+
+  // From state.decisions if available
+  if (state && state.decisions && Array.isArray(state.decisions)) {
+    state.decisions.forEach(function(d) { decisions.push(d); });
+  }
+
+  // Also check dispatches flagged as needing review
+  dispatches.forEach(function(d) {
+    if (d.needsReview && !decisions.find(dec => dec.dispatchId === d.id)) {
+      decisions.push({
+        dispatchId: d.id,
+        title: d.title || d.objective || 'Review dispatch',
+        reason: 'user review',
+        cost: d.estimatedCost || null,
+        project: d.project,
+        links: d.links || [],
+        evidence: d.evidence || null,
+      });
+    }
+  });
+
+  const countLabel = document.getElementById('decisions-count-label');
+  countLabel.textContent = decisions.length + ' decision' + (decisions.length !== 1 ? 's' : '') + ' awaiting approval';
+
+  // Update pipeline badge
+  const pipelineBadge = document.getElementById('pipeline-badge');
+  if (decisions.length > 0) {
+    pipelineBadge.textContent = decisions.length;
+    pipelineBadge.style.display = '';
+  } else {
+    pipelineBadge.style.display = 'none';
+  }
+
+  let decHtml = '';
+  decisions.forEach(function(d, i) {
+    const proj = d.project || '';
+    const priority = d.priority || '';
+    decHtml += '<div class="decision-item" data-project="' + escapeHtml(proj) + '" data-priority="' + escapeHtml(priority) + '" onclick="this.classList.toggle(\'expanded\')">';
+    decHtml += '<div class="decision-top">';
+    decHtml += '<div class="decision-number">#' + (i + 1) + '</div>';
+    decHtml += '<div class="decision-content">';
+    decHtml += '<div class="decision-desc">';
+    decHtml += '<span class="decision-desc-text">' + escapeHtml(d.title) + '</span>';
+    if (d.reason) {
+      const reasonClass = d.reason === 'irreversible' ? 'irreversible' : d.reason === 'budget' ? 'budget' : 'user-review';
+      decHtml += ' <span class="decision-reason ' + reasonClass + '">' + escapeHtml(d.reason) + '</span>';
+    }
+    if (d.cost) {
+      decHtml += ' <span class="decision-cost">~' + escapeHtml(d.cost) + '</span>';
+    }
+    decHtml += '</div>'; // decision-desc
+
+    if (d.links && d.links.length > 0) {
+      decHtml += '<div class="decision-links">';
+      d.links.forEach(function(link) {
+        if (link.description) decHtml += '<span class="link-desc">' + escapeHtml(link.description) + '</span> ';
+        if (link.type === 'server') {
+          decHtml += '<button class="start-server-btn" onclick="event.stopPropagation(); startPreviewServer(\'' + escapeHtml(link.path || '') + '\', ' + (link.port || 3000) + ', this)">&#9656; Start preview server</button>';
+        } else if (link.url) {
+          decHtml += '<a class="decision-link" href="' + escapeHtml(link.url) + '" target="_blank">' + escapeHtml(link.label || link.url) + '</a>';
+        }
+      });
+      decHtml += '</div>';
+    }
+
+    decHtml += '</div>'; // decision-content
+    decHtml += '<div class="decision-actions">';
+    const dispId = d.dispatchId || d.id || '';
+    decHtml += '<button class="decision-btn yes" onclick="event.stopPropagation(); approveDispatch(\'' + escapeHtml(dispId) + '\')">Approve</button>';
+    decHtml += '<button class="decision-btn no" onclick="event.stopPropagation(); rejectDispatch(\'' + escapeHtml(dispId) + '\')">Deny</button>';
+    decHtml += '<button class="decision-btn rework" onclick="event.stopPropagation(); toggleRework(this)">Rework</button>';
+    decHtml += '</div>';
+    decHtml += '</div>'; // decision-top
+
+    // Evidence section
+    decHtml += '<div class="decision-evidence">';
+    if (d.evidence) {
+      if (d.evidence.verification) {
+        decHtml += '<div class="evidence-section"><div class="evidence-label">Verification</div><div class="evidence-text">' + d.evidence.verification + '</div></div>';
+      }
+      if (d.evidence.risks) {
+        decHtml += '<div class="evidence-section"><div class="evidence-label">Risks &amp; mitigations</div><div class="evidence-text">' + d.evidence.risks + '</div></div>';
+      }
+      if (d.evidence.description) {
+        decHtml += '<div class="evidence-section"><div class="evidence-label">What worker will do</div><div class="evidence-text">' + escapeHtml(d.evidence.description) + '</div></div>';
+      }
+    }
+    decHtml += '</div>'; // decision-evidence
+
+    // Rework input
+    decHtml += '<div class="rework-input">';
+    decHtml += '<textarea placeholder="Describe what needs to change..."></textarea>';
+    decHtml += '<button class="send-btn" onclick="event.stopPropagation(); reworkDispatch(\'' + escapeHtml(dispId) + '\', this.parentElement.querySelector(\'textarea\').value)">Send feedback</button>';
+    decHtml += '</div>';
+
+    decHtml += '</div>'; // decision-item
+  });
+  decisionsList.innerHTML = decHtml;
+
+  // --- Categorize dispatches into kanban columns ---
+  const activeIds = new Set();
+  if (state && state.activeDispatches) {
+    state.activeDispatches.forEach(function(d) { activeIds.add(d.id || d); });
+  }
+
+  const categorized = { queued: [], active: [], blocked: [], completed: [] };
+  dispatches.forEach(function(d) {
+    if (d.result || d.status === 'completed') {
+      categorized.completed.push(d);
+    } else if (d.blocker || d.status === 'blocked') {
+      categorized.blocked.push(d);
+    } else if (activeIds.has(d.id) || d.status === 'active' || d.workerName) {
+      categorized.active.push(d);
+    } else {
+      categorized.queued.push(d);
+    }
+  });
+
+  // Render kanban columns
+  document.querySelectorAll('.dispatch-column').forEach(function(col) {
+    const status = col.dataset.status;
+    const cards = categorized[status] || [];
+    col.querySelector('.count').textContent = cards.length;
+
+    let html = '';
+    cards.forEach(function(d) {
+      const proj = d.project || '';
+      const pri = d.priority ? 'p' + d.priority : '';
+      const priLabel = d.priority ? 'P' + d.priority : '';
+      const isCompleted = status === 'completed';
+      const isBlocked = status === 'blocked';
+
+      html += '<div class="dispatch-card" data-project="' + escapeHtml(proj) + '" data-priority="' + escapeHtml(pri) + '"';
+      if (isCompleted) html += ' style="opacity:0.75;"';
+      if (isBlocked) html += ' style="border-color:rgba(248,81,73,0.2);"';
+      html += ' onclick="this.classList.toggle(\'expanded\')">';
+
+      html += '<div class="card-top">';
+      html += '<span class="card-project">' + escapeHtml(proj) + '</span>';
+      if (isCompleted && d.result) {
+        const badge = d.result.pr ? 'pr-ready' : 'success';
+        const label = d.result.pr ? 'PR #' + d.result.pr : '&#10003; done';
+        html += '<span class="result-badge ' + badge + '">' + label + '</span>';
+      } else if (priLabel) {
+        html += '<span class="card-priority ' + pri + '">' + priLabel + '</span>';
+      }
+      html += '</div>';
+
+      html += '<div class="card-title">' + escapeHtml(d.title || d.objective || 'Untitled') + '</div>';
+
+      html += '<div class="card-meta">';
+      if (status === 'active' && d.startedAt) {
+        const elapsed = Math.floor((Date.now() - new Date(d.startedAt).getTime()) / 1000);
+        html += '<span style="color:var(--status-progress);">running ' + formatElapsed(elapsed) + '</span>';
+        if (d.workerName) html += '<span>' + escapeHtml(d.workerName) + '</span>';
+      } else if (status === 'blocked') {
+        html += '<span style="color:var(--status-blocked);">blocked ' + formatTimeAgo(d.blockedAt || d.updatedAt) + '</span>';
+      } else if (status === 'completed') {
+        html += '<span>completed ' + formatTimeAgo(d.completedAt || d.updatedAt) + '</span>';
+      } else {
+        html += '<span>queued ' + formatTimeAgo(d.createdAt) + '</span>';
+      }
+      html += '</div>';
+
+      // Expandable details
+      html += '<dl class="card-details">';
+      if (d.objective) { html += '<dt>Objective</dt><dd>' + escapeHtml(d.objective) + '</dd>'; }
+      if (d.blocker) { html += '<dt>Blocker</dt><dd style="color:var(--status-blocked);">' + escapeHtml(d.blocker) + '</dd>'; }
+      if (d.result && d.result.summary) { html += '<dt>Result</dt><dd>' + escapeHtml(d.result.summary) + '</dd>'; }
+      html += '</dl>';
+
+      if (!isCompleted) {
+        html += '<div class="card-actions">';
+        html += '<button class="stop-btn" onclick="event.stopPropagation(); stopDispatch(\'' + escapeHtml(d.id) + '\', \'' + escapeHtml(d.workerName || '') + '\')">Stop</button>';
+        html += '</div>';
+      }
+
+      html += '</div>'; // dispatch-card
+    });
+    col.querySelector('.column-cards').innerHTML = html;
+  });
+
+  // Update workers badge with active count
+  const workersBadge = document.getElementById('workers-badge');
+  const activeCount = categorized.active.length;
+  if (activeCount > 0) {
+    workersBadge.textContent = activeCount;
+    workersBadge.style.display = '';
+  } else {
+    workersBadge.style.display = 'none';
+  }
+
+  // --- Priority alignment table ---
+  const tbody = document.getElementById('priority-body');
+  const projectStats = {};
+  dispatches.forEach(function(d) {
+    const p = d.project || 'unknown';
+    if (!projectStats[p]) projectStats[p] = { priority: d.priority || 5, active: 0, queued: 0, blocked: 0, completed: 0 };
+    if (categorized.active.includes(d)) projectStats[p].active++;
+    else if (categorized.queued.includes(d)) projectStats[p].queued++;
+    else if (categorized.blocked.includes(d)) projectStats[p].blocked++;
+    else if (categorized.completed.includes(d)) projectStats[p].completed++;
+    // Use lowest (highest priority) number
+    if (d.priority && d.priority < projectStats[p].priority) projectStats[p].priority = d.priority;
+  });
+
+  // Also include projects from state if available
+  if (state && state.projects) {
+    state.projects.forEach(function(proj) {
+      if (!projectStats[proj.name]) {
+        projectStats[proj.name] = { priority: proj.priority || 5, active: 0, queued: 0, blocked: 0, completed: 0 };
+      }
+      if (proj.status) projectStats[proj.name].statusText = proj.status;
+    });
+  }
+
+  let tbodyHtml = '';
+  const sortedProjects = Object.entries(projectStats).sort(function(a, b) { return a[1].priority - b[1].priority; });
+  sortedProjects.forEach(function(entry) {
+    const name = entry[0];
+    const s = entry[1];
+    const pri = 'p' + s.priority;
+    let statusText = s.statusText || '';
+    let statusColor = 'var(--text-dim)';
+    if (s.blocked > 0) { statusText = statusText || 'blocked'; statusColor = 'var(--status-blocked)'; }
+    else if (s.active > 0) { statusText = statusText || 'healthy'; statusColor = 'var(--status-done)'; }
+    else if (s.queued > 0) { statusText = statusText || 'queued'; statusColor = 'var(--status-queued)'; }
+    else { statusText = statusText || 'idle'; }
+
+    tbodyHtml += '<tr data-project="' + escapeHtml(name) + '" data-priority="' + pri + '">';
+    tbodyHtml += '<td>' + escapeHtml(name) + '</td>';
+    tbodyHtml += '<td><span class="project-priority" style="color:var(--' + pri + ');">P' + s.priority + '</span></td>';
+    tbodyHtml += '<td>' + s.active + '</td>';
+    tbodyHtml += '<td>' + s.queued + '</td>';
+    tbodyHtml += '<td style="color:' + statusColor + ';">' + escapeHtml(statusText) + '</td>';
+    tbodyHtml += '</tr>';
+  });
+  tbody.innerHTML = tbodyHtml;
+
+  // Populate project filter dropdown
+  populatePipelineProjectFilter(dispatches);
+
+  // Apply any active filters
+  applyPipelineFilters();
+}
+
+function populatePipelineProjectFilter(dispatches) {
+  const select = document.getElementById('pipeline-filter-project');
+  const current = select.value;
+  const projects = new Set();
+  dispatches.forEach(function(d) { if (d.project) projects.add(d.project); });
+  select.innerHTML = '<option value="">All projects</option>';
+  Array.from(projects).sort().forEach(function(p) {
+    const opt = document.createElement('option');
+    opt.value = p;
+    opt.textContent = p;
+    select.appendChild(opt);
+  });
+  if (current && projects.has(current)) select.value = current;
+}
+
+// ════════════════════════════════════════════
+//  PIPELINE: ACTION HANDLERS
+// ════════════════════════════════════════════
+async function approveDispatch(id) {
+  try {
+    await fetch('/api/dispatches/' + encodeURIComponent(id) + '/approve', { method: 'POST' });
+    fetchPipelineData();
+  } catch (e) {
+    showError('Failed to approve dispatch: ' + e.message);
+  }
+}
+
+async function rejectDispatch(id) {
+  try {
+    await fetch('/api/dispatches/' + encodeURIComponent(id) + '/reject', { method: 'POST' });
+    fetchPipelineData();
+  } catch (e) {
+    showError('Failed to reject dispatch: ' + e.message);
+  }
+}
+
+async function reworkDispatch(id, feedback) {
+  if (!feedback || !feedback.trim()) return;
+  try {
+    await fetch('/api/dispatches/' + encodeURIComponent(id) + '/rework', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ feedback: feedback }),
+    });
+    fetchPipelineData();
+  } catch (e) {
+    showError('Failed to send rework feedback: ' + e.message);
+  }
+}
+
+async function stopDispatch(id, workerName) {
+  try {
+    await fetch('/api/dispatches/' + encodeURIComponent(id) + '/stop', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ workerName: workerName }),
+    });
+    fetchPipelineData();
+  } catch (e) {
+    showError('Failed to stop dispatch: ' + e.message);
+  }
+}
+
+async function startPreviewServer(path, port, btn) {
+  btn.classList.add('loading');
+  btn.textContent = 'Starting server...';
+  try {
+    const res = await fetch('/api/server/start', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ path: path, port: port }),
+    });
+    const data = await res.json();
+    btn.classList.remove('loading');
+    btn.classList.add('ready');
+    const url = data.url || ('http://localhost:' + port);
+    btn.outerHTML = '<a class="decision-link" href="' + escapeHtml(url) + '" target="_blank">&#10003; Preview at ' + escapeHtml(url) + '</a>';
+  } catch (e) {
+    btn.classList.remove('loading');
+    btn.textContent = 'Failed — retry';
+  }
+}
+
+function toggleRework(btn) {
+  const item = btn.closest('.decision-item');
+  const input = item.querySelector('.rework-input');
+  input.classList.toggle('visible');
+  if (input.classList.contains('visible')) {
+    input.querySelector('textarea').focus();
+  }
+}
+
+// ════════════════════════════════════════════
+//  PIPELINE: FILTERS
+// ════════════════════════════════════════════
+document.getElementById('pipeline-filter-project').addEventListener('change', applyPipelineFilters);
+document.getElementById('pipeline-filter-priority').addEventListener('change', applyPipelineFilters);
+
+function applyPipelineFilters() {
+  const project = document.getElementById('pipeline-filter-project').value.toLowerCase();
+  const priority = document.getElementById('pipeline-filter-priority').value.toLowerCase();
+
+  // Filter dispatch cards
+  document.querySelectorAll('#view-pipeline .dispatch-card[data-project]').forEach(function(card) {
+    const cardProject = (card.dataset.project || '').toLowerCase();
+    const cardPriority = (card.dataset.priority || '').toLowerCase();
+    const matchProject = !project || cardProject.includes(project);
+    const matchPriority = !priority || cardPriority === priority;
+    card.style.display = (matchProject && matchPriority) ? '' : 'none';
+  });
+
+  // Filter decision items
+  document.querySelectorAll('#view-pipeline .decision-item[data-project]').forEach(function(item) {
+    const itemProject = (item.dataset.project || '').toLowerCase();
+    const matchProject = !project || itemProject.includes(project);
+    item.style.display = matchProject ? '' : 'none';
+  });
+
+  // Update visible decisions count
+  const visibleDecisions = document.querySelectorAll('#view-pipeline .decision-item[data-project]:not([style*="display: none"])').length;
+  const countLabel = document.getElementById('decisions-count-label');
+  if (countLabel) countLabel.textContent = visibleDecisions + ' decision' + (visibleDecisions !== 1 ? 's' : '') + ' awaiting approval';
+
+  // Update kanban column counts
+  document.querySelectorAll('.dispatch-column').forEach(function(col) {
+    const visibleCards = col.querySelectorAll('.dispatch-card:not([style*="display: none"])').length;
+    col.querySelector('.count').textContent = visibleCards;
+  });
+
+  // Filter priority table rows
+  document.querySelectorAll('#priority-body tr[data-project]').forEach(function(row) {
+    const rowProject = (row.dataset.project || '').toLowerCase();
+    const rowPriority = (row.dataset.priority || '').toLowerCase();
+    const matchProject = !project || rowProject.includes(project);
+    const matchPriority = !priority || rowPriority === priority;
+    row.style.display = (matchProject && matchPriority) ? '' : 'none';
+  });
+
+  // Filter worker cards
+  document.querySelectorAll('#view-workers .worker-card[data-project]').forEach(function(card) {
+    const cardProject = (card.dataset.project || '').toLowerCase();
+    const matchProject = !project || cardProject.includes(project);
+    card.style.display = matchProject ? '' : 'none';
+  });
+}
+
+// ════════════════════════════════════════════
+//  WORKERS: RENDERING
+// ════════════════════════════════════════════
+function classifyOutputLine(line) {
+  if (!line) return '';
+  if (/^\d{2}:\d{2}:\d{2}/.test(line)) return 'timestamp';
+  if (/[▶►]|Read |Edit |Bash |Grep |Glob |Write /.test(line)) return 'tool';
+  if (/[✓✔]|passed|Applied|success|Clean/i.test(line)) return 'success';
+  if (/ERROR|FAIL|error|failed/i.test(line)) return 'error';
+  if (/^\s+/.test(line)) return 'result';
+  return '';
+}
+
+function renderWorkers(workers) {
+  const grid = document.getElementById('workers-grid');
+  const activeWorkers = workers.filter(function(w) { return w.status === 'active' || w.active; });
+  const maxSlots = 4;
+
+  let html = '';
+
+  // Active worker cards
+  activeWorkers.forEach(function(w) {
+    html += '<div class="worker-card" data-project="' + escapeHtml(w.project || '') + '">';
+    html += '<div class="worker-header" onclick="this.closest(\'.worker-card\').classList.toggle(\'log-open\')">';
+
+    html += '<div class="worker-header-top">';
+    html += '<div class="worker-id">';
+    html += '<div class="worker-status-dot"></div>';
+    html += '<span class="worker-name">' + escapeHtml(w.name || 'worker') + '</span>';
+    html += '<span class="worker-project">' + escapeHtml(w.project || '') + '</span>';
+    html += '</div>';
+
+    html += '<div class="worker-stats">';
+    if (w.elapsed != null) html += '<span class="worker-elapsed">' + formatElapsed(w.elapsed) + '</span>';
+    if (w.tokens) html += '<span class="worker-tokens">' + escapeHtml(w.tokens) + '</span>';
+    if (w.model) html += '<span class="worker-model">' + escapeHtml(w.model) + '</span>';
+    html += '</div>';
+    html += '</div>'; // worker-header-top
+
+    if (w.goal) html += '<div class="worker-goal">' + escapeHtml(w.goal) + '</div>';
+
+    if (w.criteria && w.criteria.length > 0) {
+      html += '<div class="worker-criteria">';
+      w.criteria.forEach(function(c) {
+        const met = c.met || c.done;
+        html += '<div class="criteria-item' + (met ? ' met' : '') + '">';
+        html += '<div class="criteria-check' + (met ? ' done' : '') + '"></div>';
+        html += escapeHtml(c.text || c.label || '');
+        html += '</div>';
+      });
+      html += '</div>';
+    }
+
+    html += '</div>'; // worker-header
+
+    // Activity log
+    if (w.output && w.output.length > 0) {
+      html += '<div class="worker-output">';
+      const lines = w.output.slice(-30); // last 30 lines
+      lines.forEach(function(line) {
+        const cls = classifyOutputLine(line);
+        html += '<div class="line' + (cls ? ' ' + cls : '') + '">' + escapeHtml(line) + '</div>';
+      });
+      html += '</div>';
+    }
+
+    html += '</div>'; // worker-card
+  });
+
+  // Idle placeholder slots
+  for (let i = activeWorkers.length; i < maxSlots; i++) {
+    html += '<div class="worker-card idle">';
+    html += '<div class="worker-header">';
+    html += '<div class="worker-header-top">';
+    html += '<div class="worker-id">';
+    html += '<div class="worker-status-dot"></div>';
+    html += '<span class="worker-name">worker-' + (i + 1) + '</span>';
+    html += '<span class="worker-project" style="color:var(--text-dim);">idle</span>';
+    html += '</div>';
+    html += '<div class="worker-stats"><span style="color:var(--text-dim);">waiting</span></div>';
+    html += '</div>';
+    html += '</div>';
+    html += '</div>';
+  }
+
+  grid.innerHTML = html;
+
+  // Update workers badge
+  const workersBadge = document.getElementById('workers-badge');
+  if (activeWorkers.length > 0) {
+    workersBadge.textContent = activeWorkers.length;
+    workersBadge.style.display = '';
+  } else {
+    workersBadge.style.display = 'none';
+  }
+}
+
+// ════════════════════════════════════════════
 //  INIT
 // ════════════════════════════════════════════
 (async function init() {
@@ -2601,6 +4306,13 @@ async function refreshData() {
   if (!wasLive) {
     showError('Live loading unavailable (serve via HTTP for live data). Showing embedded snapshot.');
   }
+
+  // Initialize pipeline + workers
+  connectSSE();
+  fetchPipelineData();
+  fetchWorkers();
+  // Render idle worker placeholders immediately
+  renderWorkers([]);
 })();
 </script>
 

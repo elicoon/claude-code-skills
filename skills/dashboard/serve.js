@@ -102,7 +102,7 @@ function findDecisionLinks(stateContent) {
             const title = titleLine ? titleLine[1].replace(/^Result:\s*/i, '').substring(0, 80) : rf;
             decLinks.push({
               label: title,
-              url: 'docs/handler-results/' + rf,
+              url: '/api/file?path=handler-results/' + rf,
               type: 'result',
             });
           } catch (e) { /* skip unreadable */ }
@@ -124,7 +124,7 @@ function findDecisionLinks(stateContent) {
           if (overlap.length >= 1 || /design|plan/.test(question.toLowerCase())) {
             decLinks.push({
               label: pf.replace('.md', ''),
-              url: 'docs/plans/' + pf,
+              url: '/api/file?path=plans/' + pf,
               type: 'plan',
             });
           }
@@ -787,6 +787,61 @@ const server = http.createServer(async (req, res) => {
     } catch (e) {
       sendError(res, e.message, 500);
     }
+    return;
+  }
+
+  // -------------------------------------------------------------------------
+  // API: file viewer — serves markdown files from dev-org/docs as HTML
+  // -------------------------------------------------------------------------
+  if (url.pathname === '/api/file' && req.method === 'GET') {
+    const relPath = url.searchParams.get('path');
+    if (!relPath) {
+      sendError(res, 'path parameter required', 400);
+      return;
+    }
+    // Sanitize: only allow alphanumeric, hyphens, underscores, dots, slashes
+    if (!/^[\w./-]+$/.test(relPath)) {
+      sendError(res, 'Invalid path', 400);
+      return;
+    }
+    const absPath = path.join(HANDLER_BASE, relPath);
+    // Prevent traversal outside HANDLER_BASE
+    if (!absPath.startsWith(HANDLER_BASE)) {
+      res.writeHead(403);
+      res.end('Forbidden');
+      return;
+    }
+    fs.readFile(absPath, 'utf8', (err, content) => {
+      if (err) {
+        sendError(res, 'File not found: ' + relPath, 404);
+        return;
+      }
+      // Render as simple HTML with monospace styling
+      const title = relPath.split('/').pop().replace('.md', '');
+      const escaped = content
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;');
+      const html = `<!DOCTYPE html>
+<html><head><meta charset="utf-8"><title>${title}</title>
+<style>
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; max-width: 900px; margin: 40px auto; padding: 0 20px; background: #0d1117; color: #c9d1d9; line-height: 1.6; }
+  pre { white-space: pre-wrap; word-wrap: break-word; }
+  h1, h2, h3 { color: #58a6ff; border-bottom: 1px solid #21262d; padding-bottom: 8px; }
+  a { color: #58a6ff; }
+  code { background: #161b22; padding: 2px 6px; border-radius: 3px; }
+  table { border-collapse: collapse; width: 100%; }
+  th, td { border: 1px solid #30363d; padding: 8px 12px; text-align: left; }
+  th { background: #161b22; }
+  .back { display: inline-block; margin-bottom: 20px; color: #8b949e; text-decoration: none; }
+  .back:hover { color: #58a6ff; }
+</style></head><body>
+<a class="back" href="javascript:window.close()">Close</a>
+<pre>${escaped}</pre>
+</body></html>`;
+      res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-cache' });
+      res.end(html);
+    });
     return;
   }
 

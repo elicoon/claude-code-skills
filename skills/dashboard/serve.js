@@ -70,6 +70,32 @@ function parseDispatchFile(content, filename) {
     result.acceptanceCriteria = [];
   }
 
+  // Promote commonly-needed metadata to top-level fields
+  result.project = result.metadata.project || '';
+  // Don't promote priority — client extracts numeric priority from metadata.priority
+  result.budgetCap = result.metadata.budget_cap || '';
+  result.type = result.metadata.type || '';
+  result.repo = result.metadata.repo || '';
+
+  // Scope Boundaries (risks / out-of-scope)
+  const scopeMatch = content.match(/### Scope Boundaries\s*\n([\s\S]*?)(?=\n### |\n## |$)/);
+  result.scopeBoundaries = scopeMatch ? scopeMatch[1].trim() : '';
+
+  // Context section — key files and background
+  const contextMatch = content.match(/## Context\s*\n([\s\S]*?)(?=\n## |$)/);
+  if (contextMatch) {
+    result.context = contextMatch[1].trim();
+    // Extract key file paths: lines starting with - `/path/...`
+    const fileLines = contextMatch[1].matchAll(/^-\s*`([^`]+)`\s*[—–-]\s*(.+)/gm);
+    result.keyFiles = [];
+    for (const fl of fileLines) {
+      result.keyFiles.push({ path: fl[1].trim(), description: fl[2].trim() });
+    }
+  } else {
+    result.context = '';
+    result.keyFiles = [];
+  }
+
   return result;
 }
 

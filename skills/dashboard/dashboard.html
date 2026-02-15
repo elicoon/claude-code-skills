@@ -1295,7 +1295,23 @@
 
   .decision-cost {
     font-size: 0.62rem;
+    color: var(--accent);
+    background: rgba(88,166,255,0.08);
+    border: 1px solid rgba(88,166,255,0.15);
+    padding: 0.1rem 0.4rem;
+    border-radius: 3px;
+    font-weight: 500;
+  }
+
+  .decision-type {
+    font-size: 0.58rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
     color: var(--text-dim);
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.08);
+    padding: 0.1rem 0.35rem;
+    border-radius: 3px;
   }
 
   .link-desc {
@@ -1308,6 +1324,33 @@
     display: flex;
     gap: 0.5rem;
     flex-wrap: wrap;
+    align-items: center;
+  }
+
+  .key-file-link {
+    font-size: 0.65rem;
+    cursor: default;
+  }
+  .key-file-link code {
+    color: var(--accent);
+    font-size: 0.62rem;
+  }
+
+  .dispatch-file-ref {
+    font-size: 0.62rem;
+    color: var(--text-dim);
+  }
+
+  .evidence-checklist {
+    margin: 0.25rem 0 0 1rem;
+    padding: 0;
+    list-style: disc;
+  }
+  .evidence-checklist li {
+    font-size: 0.72rem;
+    color: var(--text-secondary);
+    margin-bottom: 0.2rem;
+    line-height: 1.35;
   }
 
   .decision-link {
@@ -2922,7 +2965,8 @@ function formatDate(dateStr) {
 }
 
 function escapeHtml(str) {
-  if (!str) return '';
+  if (str === null || str === undefined) return '';
+  str = String(str);
   return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 }
 
@@ -3883,25 +3927,30 @@ function renderPipeline(dispatches, state) {
       }
       if (match) {
         d.project = d.project || match.project;
-        d.priority = d.priority || (match.priority ? 'p' + match.priority : '');
+        if (!d.priority && match.metadata && match.metadata.priority) {
+          var pm = match.metadata.priority.match(/(\d)/);
+          if (pm) d.priority = parseInt(pm[1]);
+        }
         d.title = d.title || match.title || match.objective;
-        d.cost = d.cost || match.estimatedCost;
-        d.links = d.links || match.links || [];
-        d.evidence = d.evidence || match.evidence || null;
-        // Build evidence from dispatch fields if not explicitly set
-        if (!d.evidence && (match.objective || match.acceptanceCriteria)) {
+        d.cost = d.cost || match.budgetCap || '';
+        d.type = d.type || match.type || '';
+        d.repo = d.repo || match.repo || '';
+        d.keyFiles = d.keyFiles || match.keyFiles || [];
+        d.scopeBoundaries = d.scopeBoundaries || match.scopeBoundaries || '';
+        d.dispatchFile = match.filename || '';
+        // Build evidence from dispatch fields
+        if (!d.evidence) {
           // acceptanceCriteria items are {done, text} objects — extract text
           var acText = '';
           if (match.acceptanceCriteria && Array.isArray(match.acceptanceCriteria)) {
             acText = match.acceptanceCriteria.map(function(ac) {
               return typeof ac === 'string' ? ac : (ac.text || '');
             }).join('\n');
-          } else if (typeof match.acceptanceCriteria === 'string') {
-            acText = match.acceptanceCriteria;
           }
           d.evidence = {
             description: match.objective || '',
             verification: acText,
+            risks: match.scopeBoundaries || '',
           };
         }
       }
@@ -3945,27 +3994,36 @@ function renderPipeline(dispatches, state) {
     decHtml += '<div class="decision-number">#' + (i + 1) + '</div>';
     decHtml += '<div class="decision-content">';
     decHtml += '<div class="decision-desc">';
+    // Project label + title
+    if (proj) {
+      decHtml += '<span class="dispatch-project">' + escapeHtml(proj) + '</span> ';
+    }
     decHtml += '<span class="decision-desc-text">' + escapeHtml(d.title) + '</span>';
+    // Reason badge
     if (d.reason) {
-      const reasonClass = d.reason === 'irreversible' ? 'irreversible' : d.reason === 'budget' ? 'budget' : 'user-review';
-      const reasonLabel = d.reason === 'irreversible' ? 'irreversible' : d.reason === 'budget' ? 'budget' : 'needs review';
+      var reasonClass = 'user-review';
+      var reasonLabel = 'needs review';
+      if (/irreversible/i.test(d.reason)) { reasonClass = 'irreversible'; reasonLabel = 'irreversible'; }
+      else if (/budget/i.test(d.reason)) { reasonClass = 'budget'; reasonLabel = 'budget'; }
+      else if (/content/i.test(d.reason)) { reasonClass = 'user-review'; reasonLabel = 'content approval'; }
+      else if (/preview/i.test(d.reason)) { reasonClass = 'user-review'; reasonLabel = 'user preview'; }
+      else if (/feature/i.test(d.reason)) { reasonClass = 'user-review'; reasonLabel = 'feature'; }
       decHtml += ' <span class="decision-reason ' + reasonClass + '">' + escapeHtml(reasonLabel) + '</span>';
     }
+    // Cost / budget cap
     if (d.cost) {
-      decHtml += ' <span class="decision-cost">~' + escapeHtml(d.cost) + '</span>';
+      decHtml += ' <span class="decision-cost">' + escapeHtml(d.cost) + '</span>';
+    }
+    // Type badge
+    if (d.type) {
+      decHtml += ' <span class="decision-type">' + escapeHtml(d.type) + '</span>';
     }
     decHtml += '</div>'; // decision-desc
 
-    if (d.links && d.links.length > 0) {
+    // Start server button for deploy-type dispatches (visible in collapsed view)
+    if (d.repo && /deploy|preview|vercel/i.test(d.title + ' ' + (d.reason || ''))) {
       decHtml += '<div class="decision-links">';
-      d.links.forEach(function(link) {
-        if (link.description) decHtml += '<span class="link-desc">' + escapeHtml(link.description) + '</span> ';
-        if (link.type === 'server') {
-          decHtml += '<button class="start-server-btn" onclick="event.stopPropagation(); startPreviewServer(\'' + escapeHtml(link.path || '') + '\', ' + (link.port || 3000) + ', this)">&#9656; Start preview server</button>';
-        } else if (link.url) {
-          decHtml += '<a class="decision-link" href="' + escapeHtml(link.url) + '" target="_blank">' + escapeHtml(link.label || link.url) + '</a>';
-        }
-      });
+      decHtml += '<button class="start-server-btn" onclick="event.stopPropagation(); startPreviewServer(\'' + escapeHtml(d.repo) + '\', 3000, this)">&#9656; Start preview server</button>';
       decHtml += '</div>';
     }
 
@@ -3978,20 +4036,37 @@ function renderPipeline(dispatches, state) {
     decHtml += '</div>';
     decHtml += '</div>'; // decision-top
 
-    // Evidence section
+    // Evidence section (expanded view)
     decHtml += '<div class="decision-evidence">';
     if (d.evidence) {
-      if (d.evidence.verification) {
-        decHtml += '<div class="evidence-section"><div class="evidence-label">Verification</div><div class="evidence-text">' + escapeHtml(d.evidence.verification) + '</div></div>';
-      }
-      if (d.evidence.risks) {
-        decHtml += '<div class="evidence-section"><div class="evidence-label">Risks &amp; mitigations</div><div class="evidence-text">' + escapeHtml(d.evidence.risks) + '</div></div>';
-      }
       if (d.evidence.description) {
         decHtml += '<div class="evidence-section"><div class="evidence-label">What worker will do</div><div class="evidence-text">' + escapeHtml(d.evidence.description) + '</div></div>';
       }
+      if (d.evidence.verification) {
+        decHtml += '<div class="evidence-section"><div class="evidence-label">Verification checks</div><ul class="evidence-checklist">';
+        d.evidence.verification.split('\n').forEach(function(line) {
+          if (line.trim()) decHtml += '<li>' + escapeHtml(line.trim()) + '</li>';
+        });
+        decHtml += '</ul></div>';
+      }
+      if (d.evidence.risks) {
+        decHtml += '<div class="evidence-section"><div class="evidence-label">Scope boundaries</div><div class="evidence-text">' + escapeHtml(d.evidence.risks) + '</div></div>';
+      }
     } else if (d.reason && d.reason !== 'user review') {
       decHtml += '<div class="evidence-section"><div class="evidence-label">Context</div><div class="evidence-text">' + escapeHtml(d.reason) + '</div></div>';
+    }
+    // Key files (in evidence section)
+    if (d.keyFiles && d.keyFiles.length > 0) {
+      decHtml += '<div class="evidence-section"><div class="evidence-label">Key files</div><div class="decision-links">';
+      d.keyFiles.forEach(function(kf) {
+        var shortPath = kf.path.replace(/^\/home\/eli\/projects\//, '');
+        decHtml += '<span class="key-file-link" title="' + escapeHtml(kf.description) + '"><code>' + escapeHtml(shortPath) + '</code> — ' + escapeHtml(kf.description) + '</span><br>';
+      });
+      decHtml += '</div></div>';
+    }
+    // Dispatch file reference (in evidence section)
+    if (d.dispatchFile) {
+      decHtml += '<div class="evidence-section"><div class="evidence-label">Dispatch file</div><code class="dispatch-file-ref">' + escapeHtml(d.dispatchFile) + '</code></div>';
     }
     decHtml += '</div>'; // decision-evidence
 

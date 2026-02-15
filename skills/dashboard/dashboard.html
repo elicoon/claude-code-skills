@@ -3698,20 +3698,37 @@ function parseHandlerState(stateRes) {
   }
 
   // Parse queued dispatches for "Needs User Review?" column
-  const queuedSection = sections.find(s => /queued\s*dispatch/i.test(s.title));
+  // Table: | File | Project | Task | Needs User Review? | Blocked By |
+  // Note: "### Queued Dispatches" is an h3 inside "## Active Dispatches", so search content
+  var queuedSection = sections.find(s => /queued\s*dispatch/i.test(s.title));
+  if (!queuedSection) {
+    // h3 subsection — find the section whose content contains "Queued Dispatch"
+    queuedSection = sections.find(s => /queued\s*dispatch/i.test(s.content));
+  }
   if (queuedSection) {
-    const qRows = queuedSection.content.matchAll(/\|\s*([^|]+)\s*\|\s*([^|]+)\s*\|\s*([^|]+)\s*\|\s*([^|]+)\s*\|\s*([^|]+)\s*\|/g);
+    // Extract just the queued dispatches table (after the ### header, before next ### or ##)
+    var qdContent = queuedSection.content;
+    var qdStart = qdContent.search(/queued\s*dispatch/i);
+    if (qdStart !== -1) qdContent = qdContent.substring(qdStart);
+    var qdEnd = qdContent.search(/\n##[^#]/);
+    if (qdEnd !== -1) qdContent = qdContent.substring(0, qdEnd);
+    const qRows = qdContent.matchAll(/\|\s*([^|]+)\s*\|\s*([^|]+)\s*\|\s*([^|]+)\s*\|\s*([^|]+)\s*\|\s*([^|]+)\s*\|/g);
     if (!state.decisions) state.decisions = [];
     for (const row of qRows) {
       const id = row[1].trim();
-      if (id.startsWith('---') || id.toLowerCase() === 'id' || /^\*\*/.test(id)) continue;
-      const needsReview = row[5] ? row[5].trim() : '';
+      if (id.startsWith('---') || id.toLowerCase() === 'id' || id.toLowerCase() === 'file' || /^\*\*/.test(id)) continue;
+      const project = row[2] ? row[2].trim() : '';
+      const task = row[3] ? row[3].trim() : '';
+      const needsReview = row[4] ? row[4].trim() : '';
+      const blockedBy = row[5] ? row[5].trim() : '';
       if (/yes/i.test(needsReview)) {
         if (!state.decisions.find(d => d.dispatchId === id)) {
+          const reasonText = needsReview.replace(/^\*?\*?yes\*?\*?\s*[—–-]?\s*/i, '').trim();
           state.decisions.push({
             dispatchId: id,
-            title: row[2] ? row[2].trim() : id,
-            reason: 'user review',
+            project: project,
+            title: task || id,
+            reason: reasonText || 'user review',
           });
         }
       }
@@ -3834,9 +3851,62 @@ function renderPipeline(dispatches, state) {
   const decisionsList = document.getElementById('decisions-list');
   const decisions = [];
 
-  // From state.decisions if available
+  // From state.decisions — enrich with dispatch data when available
   if (state && state.decisions && Array.isArray(state.decisions)) {
-    state.decisions.forEach(function(d) { decisions.push(d); });
+    state.decisions.forEach(function(d) {
+      // Look up matching dispatch for rich data (objective, evidence, links)
+      // Try exact match first, then fuzzy match (handler-state uses short IDs like "cfa-error-boundary")
+      var match = dispatches.find(function(disp) { return disp.id === d.dispatchId; });
+      if (!match && d.dispatchId) {
+        // Fuzzy match: handler-state uses short IDs like "cfa-error-boundary"
+        // Dispatch files use long IDs like "2026-02-14-coon-family-app-error-boundary-code-splitting"
+        // Strategy: normalize both to keyword sets and find best overlap
+        var slugWords = d.dispatchId.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim().split(/\s+/);
+        var bestMatch = null;
+        var bestScore = 0;
+        dispatches.forEach(function(disp) {
+          if (!disp.id) return;
+          var dispWords = disp.id.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim().split(/\s+/);
+          // Count how many slug words appear in the dispatch ID
+          var score = 0;
+          slugWords.forEach(function(w) {
+            if (w.length <= 2) return; // skip short words like date fragments
+            if (dispWords.indexOf(w) !== -1 || disp.id.toLowerCase().indexOf(w) !== -1) score++;
+          });
+          if (score > bestScore) {
+            bestScore = score;
+            bestMatch = disp;
+          }
+        });
+        // Require at least 2 keyword matches to avoid false positives
+        if (bestScore >= 2) match = bestMatch;
+      }
+      if (match) {
+        d.project = d.project || match.project;
+        d.priority = d.priority || (match.priority ? 'p' + match.priority : '');
+        d.title = d.title || match.title || match.objective;
+        d.cost = d.cost || match.estimatedCost;
+        d.links = d.links || match.links || [];
+        d.evidence = d.evidence || match.evidence || null;
+        // Build evidence from dispatch fields if not explicitly set
+        if (!d.evidence && (match.objective || match.acceptanceCriteria)) {
+          // acceptanceCriteria items are {done, text} objects — extract text
+          var acText = '';
+          if (match.acceptanceCriteria && Array.isArray(match.acceptanceCriteria)) {
+            acText = match.acceptanceCriteria.map(function(ac) {
+              return typeof ac === 'string' ? ac : (ac.text || '');
+            }).join('\n');
+          } else if (typeof match.acceptanceCriteria === 'string') {
+            acText = match.acceptanceCriteria;
+          }
+          d.evidence = {
+            description: match.objective || '',
+            verification: acText,
+          };
+        }
+      }
+      decisions.push(d);
+    });
   }
 
   // Also check dispatches flagged as needing review

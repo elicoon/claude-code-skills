@@ -4162,8 +4162,10 @@ function applyPipelineFilters() {
   // Filter decision items
   document.querySelectorAll('#view-pipeline .decision-item[data-project]').forEach(function(item) {
     const itemProject = (item.dataset.project || '').toLowerCase();
+    const itemPriority = (item.dataset.priority || '').toLowerCase();
     const matchProject = !project || itemProject.includes(project);
-    item.style.display = matchProject ? '' : 'none';
+    const matchPriority = !priority || itemPriority === priority;
+    item.style.display = (matchProject && matchPriority) ? '' : 'none';
   });
 
   // Update visible decisions count
@@ -4189,8 +4191,10 @@ function applyPipelineFilters() {
   // Filter worker cards
   document.querySelectorAll('#view-workers .worker-card[data-project]').forEach(function(card) {
     const cardProject = (card.dataset.project || '').toLowerCase();
+    const cardPriority = (card.dataset.priority || '').toLowerCase();
     const matchProject = !project || cardProject.includes(project);
-    card.style.display = matchProject ? '' : 'none';
+    const matchPriority = !priority || cardPriority === priority;
+    card.style.display = (matchProject && matchPriority) ? '' : 'none';
   });
 }
 

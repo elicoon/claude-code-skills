@@ -32,6 +32,153 @@ const MIME = {
 };
 
 // ---------------------------------------------------------------------------
+// Decision Link Enrichment
+// ---------------------------------------------------------------------------
+
+const PLANS_DIR = path.join(HANDLER_BASE, 'plans');
+const GITHUB_BASE = 'https://github.com/elicoon';
+const PROJECT_REPOS = {
+  'golf-clip': 'golf-clip',
+  'golfclip': 'golf-clip',
+  'coon-family-app': 'coon-family-app',
+  'traffic-control': 'traffic-control',
+  'anthropic-app': 'elicoon.com',
+  'anthropic-application': 'elicoon.com',
+  'claude-code-skills': 'claude-code-skills',
+  'mosh-ssh-tmux': 'mosh-ssh-tmux',
+  'dev-org': 'dev-org',
+};
+
+function findDecisionLinks(stateContent) {
+  // Parse pending decisions table
+  const pdSection = stateContent.match(/## Pending Decisions[\s\S]*?(?=\n## )/);
+  if (!pdSection) return {};
+
+  const links = {};
+  const pdRows = pdSection[0].matchAll(/\|\s*(PD\d+)\s*\|\s*([^|]+)\|\s*([^|]+)\|\s*([^|]*)\|/g);
+  for (const row of pdRows) {
+    const id = row[1].trim();
+    const project = row[2].trim();
+    const question = row[3].trim();
+    const options = row[4].trim();
+    if (/resolved/i.test(options)) continue;
+
+    const decLinks = [];
+    const repo = PROJECT_REPOS[project.toLowerCase()] || '';
+
+    // Extract PR references and link to GitHub
+    const prRefs = question.matchAll(/PR\s*#(\d+)/gi);
+    for (const pr of prRefs) {
+      if (repo) {
+        decLinks.push({
+          label: 'PR #' + pr[1],
+          url: GITHUB_BASE + '/' + repo + '/pull/' + pr[1],
+          type: 'pr',
+        });
+      }
+    }
+
+    // Find related handler results (completed work for same project)
+    // Extract PR numbers from question for matching against filenames
+    const prNums = [];
+    for (const m of question.matchAll(/PR\s*#(\d+)/gi)) prNums.push('pr' + m[1]);
+    try {
+      const resultFiles = fs.readdirSync(RESULTS_DIR).filter(f => f.endsWith('.md'));
+      const projSlug = project.toLowerCase().replace(/[^a-z0-9]/g, '');
+      for (const rf of resultFiles) {
+        const rfSlug = rf.toLowerCase().replace(/[^a-z0-9]/g, '');
+        // Must match project name in filename
+        if (!rfSlug.includes(projSlug) && projSlug.length > 3) continue;
+        // Match by: PR number in filename, or keyword overlap
+        const qWords = question.toLowerCase().split(/\s+/).filter(w => w.length > 3);
+        const rfLower = rf.toLowerCase();
+        const prMatch = prNums.some(pr => rfLower.includes(pr));
+        const rfWords = rfLower.replace(/[-_.]/g, ' ');
+        const overlap = qWords.filter(w => rfWords.includes(w));
+        if (prMatch || overlap.length >= 1 || (projSlug.length <= 3 && rfSlug.includes(projSlug))) {
+          try {
+            const rc = fs.readFileSync(path.join(RESULTS_DIR, rf), 'utf8');
+            const titleLine = rc.match(/^#\s+(.+)/m);
+            const title = titleLine ? titleLine[1].replace(/^Result:\s*/i, '').substring(0, 80) : rf;
+            decLinks.push({
+              label: title,
+              url: 'docs/handler-results/' + rf,
+              type: 'result',
+            });
+          } catch (e) { /* skip unreadable */ }
+        }
+      }
+    } catch (e) { /* results dir missing */ }
+
+    // Find related plan/design docs
+    try {
+      const planFiles = fs.readdirSync(PLANS_DIR).filter(f => f.endsWith('.md'));
+      const projSlug = project.toLowerCase().replace(/[^a-z0-9]/g, '');
+      for (const pf of planFiles) {
+        const pfSlug = pf.toLowerCase().replace(/[^a-z0-9]/g, '');
+        if (pfSlug.includes(projSlug) || pfSlug.includes('anthropic') && projSlug.includes('anthropic')) {
+          // Check keyword overlap with question
+          const qWords = question.toLowerCase().split(/\s+/).filter(w => w.length > 3);
+          const pfWords = pf.toLowerCase().replace(/[-_.]/g, ' ');
+          const overlap = qWords.filter(w => pfWords.includes(w));
+          if (overlap.length >= 1 || /design|plan/.test(question.toLowerCase())) {
+            decLinks.push({
+              label: pf.replace('.md', ''),
+              url: 'docs/plans/' + pf,
+              type: 'plan',
+            });
+          }
+        }
+      }
+    } catch (e) { /* plans dir missing */ }
+
+    if (decLinks.length > 0) {
+      links[id] = decLinks;
+    }
+  }
+
+  // Also enrich queued dispatches with their dispatch file content summaries
+  const qdSection = stateContent.match(/### Queued Dispatches[\s\S]*?(?=\n## |\n### [^Q])/);
+  if (qdSection) {
+    const qdRows = qdSection[0].matchAll(/\|\s*(\S+)\s*\|\s*([^|]+)\|\s*([^|]+)\|\s*[^|]*\|\s*[^|]*\|/g);
+    for (const row of qdRows) {
+      const fileId = row[1].trim();
+      if (fileId === 'File' || fileId === '---') continue;
+      const project = row[2].trim();
+      const repo = PROJECT_REPOS[project.toLowerCase()] || '';
+
+      // Find the actual dispatch file
+      try {
+        const dispatchFiles = fs.readdirSync(DISPATCHES_DIR).filter(f => f.endsWith('.md'));
+        const match = dispatchFiles.find(f => f.toLowerCase().includes(fileId.toLowerCase()));
+        if (match) {
+          const dc = fs.readFileSync(path.join(DISPATCHES_DIR, match), 'utf8');
+          const decLinks = [];
+
+          // Extract PR references from dispatch file content
+          const prRefs = dc.matchAll(/PR\s*#(\d+)/gi);
+          for (const pr of prRefs) {
+            if (repo) {
+              decLinks.push({
+                label: 'PR #' + pr[1],
+                url: GITHUB_BASE + '/' + repo + '/pull/' + pr[1],
+                type: 'pr',
+              });
+            }
+          }
+
+          if (decLinks.length > 0) {
+            links[fileId] = decLinks;
+          }
+        }
+      } catch (e) { /* dispatch dir missing */ }
+    }
+  }
+
+  return links;
+}
+
+// ---------------------------------------------------------------------------
 // Markdown Parsers (Task 1)
 // ---------------------------------------------------------------------------
 
@@ -469,14 +616,16 @@ const server = http.createServer(async (req, res) => {
             content: part.trim(),
           });
         } else if (part.trim()) {
-          // Preamble before first ## header
           sections.push({
             title: '_preamble',
             content: part.trim(),
           });
         }
       }
-      sendJSON(res, { sections, raw: content });
+
+      // Enrich pending decisions with relevant file links
+      const decisionLinks = findDecisionLinks(content);
+      sendJSON(res, { sections, raw: content, decisionLinks });
     });
     return;
   }

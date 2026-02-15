@@ -1501,6 +1501,12 @@
   .link-repo::before { content: '⌂ '; }
   .link-file { background: rgba(180,180,180,0.08); color: var(--text-secondary); border-color: rgba(180,180,180,0.15); }
   .link-file::before { content: '⎘ '; }
+  .link-result { background: rgba(100,220,180,0.1); color: #6edcb4; border-color: rgba(100,220,180,0.2); }
+  .link-result::before { content: '✓ '; }
+  .link-plan { background: rgba(180,140,255,0.1); color: #b48cff; border-color: rgba(180,140,255,0.2); }
+  .link-plan::before { content: '📋 '; }
+  .link-dispatch { background: rgba(180,180,180,0.08); color: var(--text-secondary); border-color: rgba(180,180,180,0.15); }
+  .link-dispatch::before { content: '⎘ '; }
 
   .evidence-check {
     color: var(--status-done);
@@ -3717,6 +3723,10 @@ async function fetchPipelineData() {
 
     pipelineDispatches = dispatchData;
     pipelineState = parseHandlerState(stateRes);
+    // Attach server-enriched decision links
+    if (stateRes && stateRes.decisionLinks) {
+      pipelineState.decisionLinks = stateRes.decisionLinks;
+    }
     renderPipeline(pipelineDispatches, pipelineState);
   } catch (e) {
     // Silently fail if APIs not available
@@ -3983,51 +3993,12 @@ function renderPipeline(dispatches, state) {
         }
       }
 
-      // For ALL decisions: build actionable links
-      var allText = (d.title || '') + ' ' + (d.context || '') + ' ' + (d.reason || '');
+      // Use server-enriched decision links (specific to each decision's context)
       d.links = d.links || [];
-
-      // Map project name to GitHub repo
-      var ghRepo = '';
-      if (d.project) {
-        var pLower = d.project.toLowerCase().replace(/[^a-z0-9-]/g, '');
-        if (pLower === 'golf-clip' || pLower === 'golfclip') ghRepo = 'golf-clip';
-        else if (pLower.includes('coon-family')) ghRepo = 'coon-family-app';
-        else if (pLower.includes('traffic')) ghRepo = 'traffic-control';
-        else if (pLower.includes('anthropic') && !pLower.includes('cross')) ghRepo = 'elicoon.com';
-        else if (pLower.includes('claude-code-skills')) ghRepo = 'claude-code-skills';
-        else if (pLower.includes('mosh') || pLower.includes('tmux')) ghRepo = 'mosh-ssh-tmux';
-        else if (pLower === 'dev-org' || pLower === 'devorg') ghRepo = 'dev-org';
-        else if (pLower.includes('financial-analysis')) ghRepo = 'financial-analysis';
-        else if (pLower.includes('manual-financial')) ghRepo = 'manual-financial-script';
-        else if (pLower.includes('household')) ghRepo = 'household-automations';
-      }
-
-      // Extract PR references (e.g. "PR #15", "PR#15")
-      var prMatches = allText.matchAll(/PR\s*#(\d+)/gi);
-      for (var prm of prMatches) {
-        d.links.push({ label: 'PR #' + prm[1], url: ghRepo ? 'https://github.com/elicoon/' + ghRepo + '/pull/' + prm[1] : '', type: 'pr' });
-      }
-      // Extract issue references
-      var issueMatches = allText.matchAll(/issue\s*#(\d+)/gi);
-      for (var ism of issueMatches) {
-        d.links.push({ label: 'Issue #' + ism[1], url: ghRepo ? 'https://github.com/elicoon/' + ghRepo + '/issues/' + ism[1] : '', type: 'issue' });
-      }
-
-      // Always add repo link if we have one
-      if (ghRepo) {
-        d.links.push({ label: ghRepo, url: 'https://github.com/elicoon/' + ghRepo, type: 'repo' });
-      }
-
-      // Add dispatch file link if present
-      if (d.dispatchFile) {
-        d.links.push({ label: 'Dispatch file', url: '', type: 'dispatch' });
-      }
-
-      // For handler-specific decisions, link to handler-state
-      if (d.project === 'handler' || (d.title && /handler|budget/i.test(d.title))) {
-        d.links.push({ label: 'handler-state.md', url: '', type: 'file' });
-      }
+      var serverLinks = (state && state.decisionLinks) || {};
+      // Match by dispatch ID (for both PD* and queued dispatch file IDs)
+      var serverMatch = serverLinks[d.dispatchId] || [];
+      serverMatch.forEach(function(sl) { d.links.push(sl); });
 
       // For pending decisions without evidence: build structured evidence from context
       if (d.source === 'pending-decision' && !d.evidence) {
@@ -4150,8 +4121,10 @@ function renderPipeline(dispatches, state) {
         var typeClass = 'evidence-link';
         if (link.type === 'pr') typeClass += ' link-pr';
         else if (link.type === 'issue') typeClass += ' link-issue';
-        else if (link.type === 'repo') typeClass += ' link-repo';
-        else if (link.type === 'dispatch' || link.type === 'file') typeClass += ' link-file';
+        else if (link.type === 'result') typeClass += ' link-result';
+        else if (link.type === 'plan') typeClass += ' link-plan';
+        else if (link.type === 'dispatch') typeClass += ' link-dispatch';
+        else if (link.type === 'file') typeClass += ' link-file';
         if (link.url) {
           decHtml += '<a href="' + escapeHtml(link.url) + '" target="_blank" class="' + typeClass + '" onclick="event.stopPropagation()">' + escapeHtml(link.label) + '</a> ';
         } else {

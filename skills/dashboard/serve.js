@@ -272,8 +272,10 @@ function startWatchers() {
 
   for (const { dir, event } of watchDirs) {
     try {
+      let debounce = null;
       const w = fs.watch(dir, { persistent: false }, () => {
-        broadcast(event, { timestamp: new Date().toISOString() });
+        clearTimeout(debounce);
+        debounce = setTimeout(() => broadcast(event, { timestamp: new Date().toISOString() }), 300);
       });
       w.on('error', () => {}); // ignore watch errors
       watchers.push(w);
@@ -282,8 +284,10 @@ function startWatchers() {
 
   // Watch handler-state.md
   try {
+    let debounce = null;
     const w = fs.watch(STATE_FILE, { persistent: false }, () => {
-      broadcast('state:changed', { timestamp: new Date().toISOString() });
+      clearTimeout(debounce);
+      debounce = setTimeout(() => broadcast('state:changed', { timestamp: new Date().toISOString() }), 300);
     });
     w.on('error', () => {});
     watchers.push(w);
@@ -313,7 +317,12 @@ function stopWorkerPolling() {
 function parseBody(req) {
   return new Promise((resolve, reject) => {
     const chunks = [];
-    req.on('data', chunk => chunks.push(chunk));
+    let totalSize = 0;
+    req.on('data', chunk => {
+      totalSize += chunk.length;
+      if (totalSize > 1e6) { req.destroy(); reject(new Error('Body too large')); return; }
+      chunks.push(chunk);
+    });
     req.on('end', () => {
       const raw = Buffer.concat(chunks).toString('utf8');
       if (!raw) return resolve({});
@@ -491,7 +500,7 @@ const server = http.createServer(async (req, res) => {
   // -------------------------------------------------------------------------
   // API: dispatch actions (Task 4)
   // -------------------------------------------------------------------------
-  const dispatchActionMatch = url.pathname.match(/^\/api\/dispatches\/(.+)\/(approve|reject|rework|stop)$/);
+  const dispatchActionMatch = url.pathname.match(/^\/api\/dispatches\/([\w.-]+)\/(approve|reject|rework|stop)$/);
   if (dispatchActionMatch && req.method === 'POST') {
     const dispatchId = dispatchActionMatch[1];
     const action = dispatchActionMatch[2];
@@ -506,16 +515,16 @@ const server = http.createServer(async (req, res) => {
       } else if (action === 'reject') {
         line = `\n| ${dispatchId} | REJECTED | ${timestamp} |`;
       } else if (action === 'rework') {
-        const feedback = body.feedback || 'No feedback provided';
+        const feedback = (body.feedback || 'No feedback provided').replace(/[|]/g, '-');
         line = `\n| ${dispatchId} | REWORK | ${timestamp} | ${feedback} |`;
       } else if (action === 'stop') {
         const workerName = body.workerName;
-        if (!workerName) {
-          sendError(res, 'workerName required in body', 400);
+        if (!workerName || !/^worker-\d+$/.test(workerName)) {
+          sendError(res, 'workerName must match worker-N pattern', 400);
           return;
         }
         try {
-          execSync(`tmux kill-session -t "${workerName}" 2>/dev/null`, { timeout: 5000 });
+          execSync(`tmux kill-session -t ${workerName} 2>/dev/null`, { timeout: 5000 });
         } catch (_) {
           // Session might already be dead
         }
@@ -544,10 +553,22 @@ const server = http.createServer(async (req, res) => {
     try {
       const body = await parseBody(req);
       const projectPath = body.path;
-      const port = body.port;
+      const port = parseInt(body.port, 10);
 
       if (!projectPath || !port) {
         sendError(res, 'path and port required', 400);
+        return;
+      }
+
+      // Validate port is a safe integer
+      if (isNaN(port) || port < 1024 || port > 65535) {
+        sendError(res, 'port must be between 1024-65535', 400);
+        return;
+      }
+
+      // Validate path has no shell metacharacters
+      if (!/^\/[\w./-]+$/.test(projectPath)) {
+        sendError(res, 'Invalid path', 400);
         return;
       }
 
@@ -576,16 +597,18 @@ const server = http.createServer(async (req, res) => {
 
       // Kill existing session if present
       try {
-        execSync(`tmux kill-session -t "${sessionName}" 2>/dev/null`, { timeout: 5000 });
+        execSync(`tmux kill-session -t ${sessionName} 2>/dev/null`, { timeout: 5000 });
       } catch (_) {}
 
       // Launch in tmux
       execSync(
-        `tmux new-session -d -s "${sessionName}" -c "${projectPath}" "${command}"`,
+        `tmux new-session -d -s ${sessionName} -c "${projectPath}" "${command}"`,
         { timeout: 5000 }
       );
 
-      sendJSON(res, { ok: true, url: `http://192.168.50.205:${port}`, session: sessionName, command });
+      const host = req.headers.host || `localhost:${PORT}`;
+      const hostname = host.split(':')[0];
+      sendJSON(res, { ok: true, url: `http://${hostname}:${port}`, session: sessionName, command });
     } catch (e) {
       sendError(res, e.message, 500);
     }

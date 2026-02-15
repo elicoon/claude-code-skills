@@ -3880,10 +3880,10 @@ function renderPipeline(dispatches, state) {
     decHtml += '<div class="decision-evidence">';
     if (d.evidence) {
       if (d.evidence.verification) {
-        decHtml += '<div class="evidence-section"><div class="evidence-label">Verification</div><div class="evidence-text">' + d.evidence.verification + '</div></div>';
+        decHtml += '<div class="evidence-section"><div class="evidence-label">Verification</div><div class="evidence-text">' + escapeHtml(d.evidence.verification) + '</div></div>';
       }
       if (d.evidence.risks) {
-        decHtml += '<div class="evidence-section"><div class="evidence-label">Risks &amp; mitigations</div><div class="evidence-text">' + d.evidence.risks + '</div></div>';
+        decHtml += '<div class="evidence-section"><div class="evidence-label">Risks &amp; mitigations</div><div class="evidence-text">' + escapeHtml(d.evidence.risks) + '</div></div>';
       }
       if (d.evidence.description) {
         decHtml += '<div class="evidence-section"><div class="evidence-label">What worker will do</div><div class="evidence-text">' + escapeHtml(d.evidence.description) + '</div></div>';

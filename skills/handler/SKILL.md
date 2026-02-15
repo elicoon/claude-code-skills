@@ -40,7 +40,7 @@ When invoked by the heartbeat loop (no user present), the handler runs a restric
 - Skip Steps 1.2–1.4 (full backlog/repo/GitHub scans — too heavy for 30-min cadence)
 
 **Phase 2 (Auto-dispatch only):**
-- Step 2.1: Identify starving projects — use handler-state.md's Budget by Project table and Active Dispatches to determine which projects have no queued or running work. For starving projects, dispatch a product-strategist worker via `launch-worker.sh`.
+- Step 2.1: Identify starving projects — use handler-state.md's Budget by Project table and Active Dispatches to determine which projects have no queued or running **autonomous** work. User-blocked items don't count — they're on the user's plate, not the pipeline. For starving projects, dispatch a product-strategist worker via `launch-worker.sh`.
 - Step 2.5: Build dispatch queue — **only auto-dispatchable items** (see Autonomy Model). Check `handler-dispatches/` for unlaunched dispatch files.
 
 **Phase 3 (Launch):**
@@ -288,11 +288,16 @@ cd {DEV_ORG_PATH} && git add docs/handler-state.md && git commit -m "handler: ch
 
 Using the data gathered in Phase 1, evaluate the following. Do this silently — output comes in Phase 4.
 
+### Pipeline Definition
+
+**The "pipeline" is work Claude can execute autonomously.** User-blocked items (needs approval, needs user review, needs user testing, etc.) are NOT pipeline work — they sit on the user's plate. When evaluating pipeline health, completely ignore user-blocked items. A project with 10 user-blocked dispatches and 0 auto-dispatchable items has an **empty pipeline**.
+
 ### Step 2.1: Identify Starving Projects
 
 A project is **starving** if:
 - It is an active project (has in-progress or ready tasks in backlog, or recent commits)
-- AND it has fewer than 2 tasks that can be executed autonomously (without user input)
+- AND it has fewer than 2 tasks that Claude can execute autonomously (without user input)
+- **User-blocked items do not count.** A project with only user-blocked work is starving.
 
 For starving projects, **dispatch a product-strategist worker** to fill the backlog:
 

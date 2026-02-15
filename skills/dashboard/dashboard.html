@@ -1493,6 +1493,14 @@
     background: rgba(100,200,255,0.2);
     text-decoration: none;
   }
+  .link-pr { background: rgba(130,220,100,0.1); color: #7cd87c; border-color: rgba(130,220,100,0.25); }
+  .link-pr::before { content: '⬀ '; }
+  .link-issue { background: rgba(255,180,50,0.1); color: #e8b84d; border-color: rgba(255,180,50,0.25); }
+  .link-issue::before { content: '◉ '; }
+  .link-repo { background: rgba(160,160,200,0.1); color: #a0a0c8; border-color: rgba(160,160,200,0.2); }
+  .link-repo::before { content: '⌂ '; }
+  .link-file { background: rgba(180,180,180,0.08); color: var(--text-secondary); border-color: rgba(180,180,180,0.15); }
+  .link-file::before { content: '⎘ '; }
 
   .evidence-check {
     color: var(--status-done);
@@ -3975,27 +3983,50 @@ function renderPipeline(dispatches, state) {
         }
       }
 
-      // For ALL decisions: extract actionable links from title + context text
+      // For ALL decisions: build actionable links
       var allText = (d.title || '') + ' ' + (d.context || '') + ' ' + (d.reason || '');
       d.links = d.links || [];
-      // Extract PR references (e.g. "PR #15", "PR#15", "#15")
+
+      // Map project name to GitHub repo
+      var ghRepo = '';
+      if (d.project) {
+        var pLower = d.project.toLowerCase().replace(/[^a-z0-9-]/g, '');
+        if (pLower === 'golf-clip' || pLower === 'golfclip') ghRepo = 'golf-clip';
+        else if (pLower.includes('coon-family')) ghRepo = 'coon-family-app';
+        else if (pLower.includes('traffic')) ghRepo = 'traffic-control';
+        else if (pLower.includes('anthropic') && !pLower.includes('cross')) ghRepo = 'elicoon.com';
+        else if (pLower.includes('claude-code-skills')) ghRepo = 'claude-code-skills';
+        else if (pLower.includes('mosh') || pLower.includes('tmux')) ghRepo = 'mosh-ssh-tmux';
+        else if (pLower === 'dev-org' || pLower === 'devorg') ghRepo = 'dev-org';
+        else if (pLower.includes('financial-analysis')) ghRepo = 'financial-analysis';
+        else if (pLower.includes('manual-financial')) ghRepo = 'manual-financial-script';
+        else if (pLower.includes('household')) ghRepo = 'household-automations';
+      }
+
+      // Extract PR references (e.g. "PR #15", "PR#15")
       var prMatches = allText.matchAll(/PR\s*#(\d+)/gi);
       for (var prm of prMatches) {
-        var prNum = prm[1];
-        // Try to find repo from project name for GH link
-        var ghRepo = '';
-        if (d.project) {
-          var pLower = d.project.toLowerCase().replace(/[^a-z0-9-]/g, '');
-          if (pLower === 'golf-clip' || pLower === 'golfclip') ghRepo = 'golf-clip';
-          else if (pLower.includes('coon-family')) ghRepo = 'coon-family-app';
-          else if (pLower.includes('traffic')) ghRepo = 'traffic-control';
-        }
-        d.links.push({ label: 'PR #' + prNum, url: ghRepo ? 'https://github.com/elicoon/' + ghRepo + '/pull/' + prNum : '', type: 'pr' });
+        d.links.push({ label: 'PR #' + prm[1], url: ghRepo ? 'https://github.com/elicoon/' + ghRepo + '/pull/' + prm[1] : '', type: 'pr' });
       }
       // Extract issue references
       var issueMatches = allText.matchAll(/issue\s*#(\d+)/gi);
       for (var ism of issueMatches) {
-        d.links.push({ label: 'Issue #' + ism[1], type: 'issue' });
+        d.links.push({ label: 'Issue #' + ism[1], url: ghRepo ? 'https://github.com/elicoon/' + ghRepo + '/issues/' + ism[1] : '', type: 'issue' });
+      }
+
+      // Always add repo link if we have one
+      if (ghRepo) {
+        d.links.push({ label: ghRepo, url: 'https://github.com/elicoon/' + ghRepo, type: 'repo' });
+      }
+
+      // Add dispatch file link if present
+      if (d.dispatchFile) {
+        d.links.push({ label: 'Dispatch file', url: '', type: 'dispatch' });
+      }
+
+      // For handler-specific decisions, link to handler-state
+      if (d.project === 'handler' || (d.title && /handler|budget/i.test(d.title))) {
+        d.links.push({ label: 'handler-state.md', url: '', type: 'file' });
       }
 
       // For pending decisions without evidence: build structured evidence from context
@@ -4112,14 +4143,19 @@ function renderPipeline(dispatches, state) {
       }
     }
 
-    // --- Section 2: Actionable links (PRs, issues, repos) ---
+    // --- Section 2: Actionable links (PRs, issues, repos, files) ---
     if (d.links && d.links.length > 0) {
       decHtml += '<div class="evidence-section"><div class="evidence-label">Related links</div><div class="decision-links">';
       d.links.forEach(function(link) {
+        var typeClass = 'evidence-link';
+        if (link.type === 'pr') typeClass += ' link-pr';
+        else if (link.type === 'issue') typeClass += ' link-issue';
+        else if (link.type === 'repo') typeClass += ' link-repo';
+        else if (link.type === 'dispatch' || link.type === 'file') typeClass += ' link-file';
         if (link.url) {
-          decHtml += '<a href="' + escapeHtml(link.url) + '" target="_blank" class="evidence-link" onclick="event.stopPropagation()">' + escapeHtml(link.label) + '</a> ';
+          decHtml += '<a href="' + escapeHtml(link.url) + '" target="_blank" class="' + typeClass + '" onclick="event.stopPropagation()">' + escapeHtml(link.label) + '</a> ';
         } else {
-          decHtml += '<span class="evidence-link">' + escapeHtml(link.label) + '</span> ';
+          decHtml += '<span class="' + typeClass + '">' + escapeHtml(link.label) + '</span> ';
         }
       });
       decHtml += '</div></div>';

@@ -1477,6 +1477,23 @@
   }
   .evidence-text a:hover { text-decoration: underline; }
 
+  .evidence-link {
+    display: inline-block;
+    padding: 0.15rem 0.5rem;
+    border-radius: 3px;
+    font-size: 0.75rem;
+    margin-right: 0.35rem;
+    margin-bottom: 0.25rem;
+    background: rgba(100,200,255,0.1);
+    color: var(--status-progress);
+    border: 1px solid rgba(100,200,255,0.2);
+    text-decoration: none;
+  }
+  a.evidence-link:hover {
+    background: rgba(100,200,255,0.2);
+    text-decoration: none;
+  }
+
   .evidence-check {
     color: var(--status-done);
   }
@@ -3957,6 +3974,38 @@ function renderPipeline(dispatches, state) {
           };
         }
       }
+
+      // For ALL decisions: extract actionable links from title + context text
+      var allText = (d.title || '') + ' ' + (d.context || '') + ' ' + (d.reason || '');
+      d.links = d.links || [];
+      // Extract PR references (e.g. "PR #15", "PR#15", "#15")
+      var prMatches = allText.matchAll(/PR\s*#(\d+)/gi);
+      for (var prm of prMatches) {
+        var prNum = prm[1];
+        // Try to find repo from project name for GH link
+        var ghRepo = '';
+        if (d.project) {
+          var pLower = d.project.toLowerCase().replace(/[^a-z0-9-]/g, '');
+          if (pLower === 'golf-clip' || pLower === 'golfclip') ghRepo = 'golf-clip';
+          else if (pLower.includes('coon-family')) ghRepo = 'coon-family-app';
+          else if (pLower.includes('traffic')) ghRepo = 'traffic-control';
+        }
+        d.links.push({ label: 'PR #' + prNum, url: ghRepo ? 'https://github.com/elicoon/' + ghRepo + '/pull/' + prNum : '', type: 'pr' });
+      }
+      // Extract issue references
+      var issueMatches = allText.matchAll(/issue\s*#(\d+)/gi);
+      for (var ism of issueMatches) {
+        d.links.push({ label: 'Issue #' + ism[1], type: 'issue' });
+      }
+
+      // For pending decisions without evidence: build structured evidence from context
+      if (d.source === 'pending-decision' && !d.evidence) {
+        d.evidence = {
+          description: d.title || '',
+          recommendation: d.context || '',
+        };
+      }
+
       decisions.push(d);
     });
   }
@@ -4046,35 +4095,51 @@ function renderPipeline(dispatches, state) {
 
     // Evidence section (expanded view) — EVERY decision gets this
     decHtml += '<div class="decision-evidence">';
-    var hasEvidence = false;
 
-    // Context / handler notes (pending decisions always have this from Options column)
-    if (d.context) {
-      decHtml += '<div class="evidence-section"><div class="evidence-label">Handler notes</div><div class="evidence-text">' + escapeHtml(d.context) + '</div></div>';
-      hasEvidence = true;
-    }
-
-    // Rich evidence from dispatch file
-    if (d.evidence) {
-      if (d.evidence.description) {
+    // --- Section 1: What needs deciding (always show for pending decisions) ---
+    if (d.source === 'pending-decision') {
+      decHtml += '<div class="evidence-section"><div class="evidence-label">What needs deciding</div><div class="evidence-text">' + escapeHtml(d.title) + '</div></div>';
+      if (d.context) {
+        decHtml += '<div class="evidence-section"><div class="evidence-label">Handler recommendation</div><div class="evidence-text">' + escapeHtml(d.context) + '</div></div>';
+      }
+    } else {
+      // Queued dispatches: show objective / what worker will do
+      if (d.evidence && d.evidence.description) {
         decHtml += '<div class="evidence-section"><div class="evidence-label">What worker will do</div><div class="evidence-text">' + escapeHtml(d.evidence.description) + '</div></div>';
-        hasEvidence = true;
       }
-      if (d.evidence.verification) {
-        decHtml += '<div class="evidence-section"><div class="evidence-label">Verification checks</div><ul class="evidence-checklist">';
-        d.evidence.verification.split('\n').forEach(function(line) {
-          if (line.trim()) decHtml += '<li>' + escapeHtml(line.trim()) + '</li>';
-        });
-        decHtml += '</ul></div>';
-        hasEvidence = true;
-      }
-      if (d.evidence.risks) {
-        decHtml += '<div class="evidence-section"><div class="evidence-label">Scope boundaries</div><div class="evidence-text">' + escapeHtml(d.evidence.risks) + '</div></div>';
-        hasEvidence = true;
+      if (d.context && d.context !== (d.evidence && d.evidence.description)) {
+        decHtml += '<div class="evidence-section"><div class="evidence-label">Handler notes</div><div class="evidence-text">' + escapeHtml(d.context) + '</div></div>';
       }
     }
 
-    // Key files (in evidence section)
+    // --- Section 2: Actionable links (PRs, issues, repos) ---
+    if (d.links && d.links.length > 0) {
+      decHtml += '<div class="evidence-section"><div class="evidence-label">Related links</div><div class="decision-links">';
+      d.links.forEach(function(link) {
+        if (link.url) {
+          decHtml += '<a href="' + escapeHtml(link.url) + '" target="_blank" class="evidence-link" onclick="event.stopPropagation()">' + escapeHtml(link.label) + '</a> ';
+        } else {
+          decHtml += '<span class="evidence-link">' + escapeHtml(link.label) + '</span> ';
+        }
+      });
+      decHtml += '</div></div>';
+    }
+
+    // --- Section 3: Verification checks ---
+    if (d.evidence && d.evidence.verification) {
+      decHtml += '<div class="evidence-section"><div class="evidence-label">Verification checks</div><ul class="evidence-checklist">';
+      d.evidence.verification.split('\n').forEach(function(line) {
+        if (line.trim()) decHtml += '<li>' + escapeHtml(line.trim()) + '</li>';
+      });
+      decHtml += '</ul></div>';
+    }
+
+    // --- Section 4: Scope boundaries / risks ---
+    if (d.evidence && d.evidence.risks) {
+      decHtml += '<div class="evidence-section"><div class="evidence-label">Scope boundaries</div><div class="evidence-text">' + escapeHtml(d.evidence.risks) + '</div></div>';
+    }
+
+    // --- Section 5: Key files ---
     if (d.keyFiles && d.keyFiles.length > 0) {
       decHtml += '<div class="evidence-section"><div class="evidence-label">Key files</div><div class="decision-links">';
       d.keyFiles.forEach(function(kf) {
@@ -4082,21 +4147,15 @@ function renderPipeline(dispatches, state) {
         decHtml += '<span class="key-file-link" title="' + escapeHtml(kf.description) + '"><code>' + escapeHtml(shortPath) + '</code> — ' + escapeHtml(kf.description) + '</span><br>';
       });
       decHtml += '</div></div>';
-      hasEvidence = true;
     }
 
-    // Dispatch file reference (in evidence section)
+    // --- Section 6: Dispatch file reference ---
     if (d.dispatchFile) {
       decHtml += '<div class="evidence-section"><div class="evidence-label">Dispatch file</div><code class="dispatch-file-ref">' + escapeHtml(d.dispatchFile) + '</code></div>';
-      hasEvidence = true;
     }
 
-    // Source label so user knows where this decision came from
-    decHtml += '<div class="evidence-section"><div class="evidence-label">Source</div><div class="evidence-text">' + escapeHtml(d.source === 'pending-decision' ? 'Pending Decisions table (handler-state.md)' : d.source === 'queued-dispatch' ? 'Queued Dispatches table (handler-state.md)' : 'Dispatch file') + '</div></div>';
-
-    if (!hasEvidence && !d.context) {
-      decHtml += '<div class="evidence-section"><div class="evidence-text" style="opacity:0.5">No additional context available for this decision.</div></div>';
-    }
+    // --- Section 7: Source provenance ---
+    decHtml += '<div class="evidence-section"><div class="evidence-label">Source</div><div class="evidence-text">' + escapeHtml(d.source === 'pending-decision' ? 'Pending Decisions table' : d.source === 'queued-dispatch' ? 'Queued Dispatches table' : 'Dispatch file') + '</div></div>';
 
     decHtml += '</div>'; // decision-evidence
 

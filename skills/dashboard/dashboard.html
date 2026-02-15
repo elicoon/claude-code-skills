@@ -3737,6 +3737,8 @@ function parseHandlerState(stateRes) {
         project: project,
         title: question,
         reason: options || 'user review',
+        source: 'pending-decision',
+        context: options || '',
       });
     }
   }
@@ -3773,6 +3775,7 @@ function parseHandlerState(stateRes) {
             project: project,
             title: task || id,
             reason: reasonText || 'user review',
+            source: 'queued-dispatch',
           });
         }
       }
@@ -3999,15 +4002,20 @@ function renderPipeline(dispatches, state) {
       decHtml += '<span class="dispatch-project">' + escapeHtml(proj) + '</span> ';
     }
     decHtml += '<span class="decision-desc-text">' + escapeHtml(d.title) + '</span>';
-    // Reason badge
+    // Reason badge — only classify queued dispatches by keyword; pending decisions get generic badge
     if (d.reason) {
       var reasonClass = 'user-review';
       var reasonLabel = 'needs review';
-      if (/irreversible/i.test(d.reason)) { reasonClass = 'irreversible'; reasonLabel = 'irreversible'; }
-      else if (/budget/i.test(d.reason)) { reasonClass = 'budget'; reasonLabel = 'budget'; }
-      else if (/content/i.test(d.reason)) { reasonClass = 'user-review'; reasonLabel = 'content approval'; }
-      else if (/preview/i.test(d.reason)) { reasonClass = 'user-review'; reasonLabel = 'user preview'; }
-      else if (/feature/i.test(d.reason)) { reasonClass = 'user-review'; reasonLabel = 'feature'; }
+      if (d.source !== 'pending-decision') {
+        // Queued dispatches have structured reason text from handler-state
+        if (/irreversible/i.test(d.reason)) { reasonClass = 'irreversible'; reasonLabel = 'irreversible'; }
+        else if (/budget/i.test(d.reason)) { reasonClass = 'budget'; reasonLabel = 'budget'; }
+        else if (/content/i.test(d.reason)) { reasonClass = 'user-review'; reasonLabel = 'content approval'; }
+        else if (/preview/i.test(d.reason)) { reasonClass = 'user-review'; reasonLabel = 'user preview'; }
+        else if (/feature/i.test(d.reason)) { reasonClass = 'user-review'; reasonLabel = 'feature'; }
+      } else {
+        reasonLabel = 'pending decision';
+      }
       decHtml += ' <span class="decision-reason ' + reasonClass + '">' + escapeHtml(reasonLabel) + '</span>';
     }
     // Cost / budget cap
@@ -4036,11 +4044,21 @@ function renderPipeline(dispatches, state) {
     decHtml += '</div>';
     decHtml += '</div>'; // decision-top
 
-    // Evidence section (expanded view)
+    // Evidence section (expanded view) — EVERY decision gets this
     decHtml += '<div class="decision-evidence">';
+    var hasEvidence = false;
+
+    // Context / handler notes (pending decisions always have this from Options column)
+    if (d.context) {
+      decHtml += '<div class="evidence-section"><div class="evidence-label">Handler notes</div><div class="evidence-text">' + escapeHtml(d.context) + '</div></div>';
+      hasEvidence = true;
+    }
+
+    // Rich evidence from dispatch file
     if (d.evidence) {
       if (d.evidence.description) {
         decHtml += '<div class="evidence-section"><div class="evidence-label">What worker will do</div><div class="evidence-text">' + escapeHtml(d.evidence.description) + '</div></div>';
+        hasEvidence = true;
       }
       if (d.evidence.verification) {
         decHtml += '<div class="evidence-section"><div class="evidence-label">Verification checks</div><ul class="evidence-checklist">';
@@ -4048,13 +4066,14 @@ function renderPipeline(dispatches, state) {
           if (line.trim()) decHtml += '<li>' + escapeHtml(line.trim()) + '</li>';
         });
         decHtml += '</ul></div>';
+        hasEvidence = true;
       }
       if (d.evidence.risks) {
         decHtml += '<div class="evidence-section"><div class="evidence-label">Scope boundaries</div><div class="evidence-text">' + escapeHtml(d.evidence.risks) + '</div></div>';
+        hasEvidence = true;
       }
-    } else if (d.reason && d.reason !== 'user review') {
-      decHtml += '<div class="evidence-section"><div class="evidence-label">Context</div><div class="evidence-text">' + escapeHtml(d.reason) + '</div></div>';
     }
+
     // Key files (in evidence section)
     if (d.keyFiles && d.keyFiles.length > 0) {
       decHtml += '<div class="evidence-section"><div class="evidence-label">Key files</div><div class="decision-links">';
@@ -4063,11 +4082,22 @@ function renderPipeline(dispatches, state) {
         decHtml += '<span class="key-file-link" title="' + escapeHtml(kf.description) + '"><code>' + escapeHtml(shortPath) + '</code> — ' + escapeHtml(kf.description) + '</span><br>';
       });
       decHtml += '</div></div>';
+      hasEvidence = true;
     }
+
     // Dispatch file reference (in evidence section)
     if (d.dispatchFile) {
       decHtml += '<div class="evidence-section"><div class="evidence-label">Dispatch file</div><code class="dispatch-file-ref">' + escapeHtml(d.dispatchFile) + '</code></div>';
+      hasEvidence = true;
     }
+
+    // Source label so user knows where this decision came from
+    decHtml += '<div class="evidence-section"><div class="evidence-label">Source</div><div class="evidence-text">' + escapeHtml(d.source === 'pending-decision' ? 'Pending Decisions table (handler-state.md)' : d.source === 'queued-dispatch' ? 'Queued Dispatches table (handler-state.md)' : 'Dispatch file') + '</div></div>';
+
+    if (!hasEvidence && !d.context) {
+      decHtml += '<div class="evidence-section"><div class="evidence-text" style="opacity:0.5">No additional context available for this decision.</div></div>';
+    }
+
     decHtml += '</div>'; // decision-evidence
 
     // Rework input

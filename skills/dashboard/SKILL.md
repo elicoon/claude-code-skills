@@ -9,7 +9,7 @@ description: Open the backlog dashboard in a browser (starts the local server if
 
 ## When to Use
 
-Use this skill when you want to view the backlog dashboard visually. It handles the server lifecycle so you don't have to think about it.
+Use this skill when you want to view the backlog dashboard visually, monitor handler pipeline activity, or check on worker status. It handles the server lifecycle so you don't have to think about it.
 
 ## Configuration
 
@@ -99,7 +99,15 @@ Report to the user:
 
 ## Files Read
 
-None directly. The server serves `dashboard.html` which reads task files from `backlog/tasks/` via the `/api/tasks` endpoint.
+None directly. The server serves `dashboard.html` which reads task files via API endpoints.
+
+## Tabs
+
+- **Backlog (B)** — Kanban board of backlog tasks from `backlog/tasks/*.md`
+- **Pipeline (P)** — Handler dispatch overview: budget bar, pending decisions with approve/deny/rework, dispatch kanban (queued/active/blocked/completed), priority alignment table
+- **Workers (W)** — Live 2x2 grid of tmux worker sessions with output logs, acceptance criteria, model info
+
+Pipeline and Workers use SSE for live updates (file watches + tmux polling).
 
 ## Files Written
 
@@ -107,4 +115,5 @@ None.
 
 ## Integrations
 
-None.
+- Handler data: `docs/handler-dispatches/`, `handler-results/`, `handler-blockers/`, `handler-state.md`
+- Worker sessions: tmux sessions named `worker-*`

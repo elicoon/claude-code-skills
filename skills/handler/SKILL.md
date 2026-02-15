@@ -34,18 +34,22 @@ DESIGN DOC: dev-org/docs/plans/2026-02-11-handler-design.md
 
 When invoked by the heartbeat loop (no user present), the handler runs a restricted subset of its phases. This keeps the workforce pipeline running continuously without human intervention.
 
+**Note:** The bash heartbeat (`heartbeat.sh`) now handles the mechanical pipeline stages directly — strategist dispatch, scoper dispatch, and auto-dispatchable worker launches — without needing a handler turn. The handler turn (claude -p) focuses on higher-level orchestration that requires judgment.
+
 **Phase 1 (Lightweight scan):**
 - Step 1.1: Read handler-state.md
 - Step 1.5: Read worker results + blockers
 - Skip Steps 1.2–1.4 (full backlog/repo/GitHub scans — too heavy for 30-min cadence)
 
-**Phase 2 (Auto-dispatch only):**
-- Step 2.1: Identify starving projects — use handler-state.md's Budget by Project table and Active Dispatches to determine which projects have no queued or running **autonomous** work. User-blocked items don't count — they're on the user's plate, not the pipeline. For starving projects, dispatch a product-strategist worker via `launch-worker.sh`.
-- Step 2.5: Build dispatch queue — **only auto-dispatchable items** (see Autonomy Model). Check `handler-dispatches/` for unlaunched dispatch files.
+**Phase 2 (Handler-level orchestration):**
+- Process worker results: update handler-state.md, mark dispatches complete, move to check-in log
+- Identify approval-gated items accumulating in dispatch queue — surface in alerts
+- Clean up stale dispatches (>3 days old without result): re-dispatch or archive
+- Budget pacing adjustments
+- Step 2.5: Build dispatch queue for items that bash can't handle (features, architecture decisions)
 
 **Phase 3 (Launch):**
-- Step 3.0: Dispatch workforce-scoper if backlog items exist without dispatch files
-- Step 3.2: Launch workers for auto-dispatch items via `launch-worker.sh`
+- Step 3.2: Launch workers for approval-gated items that were pre-approved by user
 - Step 3.3: Update handler-state.md and commit
 
 **Phase 4: Skip entirely.** No briefing, no approval requests.
@@ -292,7 +296,18 @@ Using the data gathered in Phase 1, evaluate the following. Do this silently —
 
 **The "pipeline" is work Claude can execute autonomously.** User-blocked items (needs approval, needs user review, needs user testing, etc.) are NOT pipeline work — they sit on the user's plate. When evaluating pipeline health, completely ignore user-blocked items. A project with 10 user-blocked dispatches and 0 auto-dispatchable items has an **empty pipeline**.
 
+**Pipeline stages** (handled by bash heartbeat in `heartbeat.sh`):
+1. **Empty backlog** → bash dispatches product-strategist
+2. **Backlog items without dispatch files** → bash dispatches workforce-scoper
+3. **Auto-dispatchable dispatch files** → bash launches worker
+
+The handler turn focuses on items bash can't handle: approval-gated dispatches, result processing, blocker triage, budget pacing, and stale dispatch cleanup.
+
+**Project registry:** `scripts/pipeline-config.sh` defines all projects with their repo paths, backlog paths, and priorities. Both heartbeat.sh and handler turns read from this config.
+
 ### Step 2.1: Identify Starving Projects
+
+**Note:** The bash heartbeat now handles starving project detection and strategist/scoper dispatch directly via `maybe_advance_pipeline()`. The handler turn should verify the pipeline is healthy and address anything the bash automation missed.
 
 A project is **starving** if:
 - It is an active project (has in-progress or ready tasks in backlog, or recent commits)
@@ -421,6 +436,8 @@ cd {DEV_ORG_PATH} && git add docs/handler-state.md && git commit -m "handler: ch
 ## Phase 3: Dispatch — Route and Launch
 
 ### Step 3.0: Dispatch Workforce Scoper (if needed)
+
+**Note:** The bash heartbeat now dispatches scopers directly via `maybe_advance_pipeline()`. This step is a fallback for cases where the heartbeat missed an item or the user manually triggered a handler turn.
 
 If there are backlog items ready for dispatch but no dispatch files exist for them, launch a **workforce-scoper** worker to convert them:
 

@@ -259,20 +259,51 @@ function parseDispatchFile(content, filename) {
   const scopeMatch = content.match(/### Scope Boundaries\s*\n([\s\S]*?)(?=\n### |\n## |$)/);
   result.scopeBoundaries = scopeMatch ? scopeMatch[1].trim() : '';
 
-  // Context section — key files and background
-  const contextMatch = content.match(/## Context\s*\n([\s\S]*?)(?=\n## |$)/);
-  if (contextMatch) {
-    result.context = contextMatch[1].trim();
-    // Extract key file paths: lines starting with - `/path/...`
-    const fileLines = contextMatch[1].matchAll(/^-\s*`([^`]+)`\s*[—–-]\s*(.+)/gm);
-    result.keyFiles = [];
+  // v3: Background section (narrative)
+  const backgroundMatch = content.match(/## Background\s*\n([\s\S]*?)(?=\n## |$)/);
+  result.background = backgroundMatch ? backgroundMatch[1].trim() : '';
+
+  // v3: Source Files section (structured file references, frozen)
+  const sourceFilesMatch = content.match(/### Source Files\s*\n([\s\S]*?)(?=\n### |\n## |$)/);
+  result.sourceFiles = [];
+  if (sourceFilesMatch) {
+    const fileLines = sourceFilesMatch[1].matchAll(/^-\s*`([^`]+)`\s*[—–-]\s*(.+)/gm);
     for (const fl of fileLines) {
-      result.keyFiles.push({ path: fl[1].trim(), description: fl[2].trim() });
+      result.sourceFiles.push({ path: fl[1].trim(), description: fl[2].trim() });
     }
-  } else {
-    result.context = '';
-    result.keyFiles = [];
   }
+
+  // v3: Files Modified section (worker-writable)
+  const filesModifiedMatch = content.match(/### Files Modified\s*\n([\s\S]*?)(?=\n## |$)/);
+  result.filesModified = [];
+  if (filesModifiedMatch) {
+    const fileLines = filesModifiedMatch[1].matchAll(/^-\s*`([^`]+)`\s*[—–-]\s*(.+)/gm);
+    for (const fl of fileLines) {
+      result.filesModified.push({ path: fl[1].trim(), description: fl[2].trim() });
+    }
+  }
+
+  // v3: Technical Context section (constraints)
+  const techContextMatch = content.match(/## Technical Context\s*\n([\s\S]*?)(?=\n## |$)/);
+  result.technicalContext = techContextMatch ? techContextMatch[1].trim() : '';
+
+  // v2 fallback: if no v3 sections found, try old ## Context
+  if (result.sourceFiles.length === 0 && !backgroundMatch) {
+    const contextMatch = content.match(/## Context\s*\n([\s\S]*?)(?=\n## |$)/);
+    if (contextMatch) {
+      result.background = contextMatch[1].trim();
+      const fileLines = contextMatch[1].matchAll(/^-\s*`([^`]+)`\s*[—–-]\s*(.+)/gm);
+      for (const fl of fileLines) {
+        result.sourceFiles.push({ path: fl[1].trim(), description: fl[2].trim() });
+      }
+    }
+  }
+
+  // Backward compat: keep keyFiles for any code still referencing it
+  result.keyFiles = result.sourceFiles;
+
+  // v3: Decision Needed metadata field (used as decision card title)
+  result.decisionNeeded = result.metadata.decision_needed || '';
 
   return result;
 }

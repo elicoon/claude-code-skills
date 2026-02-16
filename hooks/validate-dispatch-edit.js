@@ -22,7 +22,9 @@ const FROZEN_HEADERS = [
   "## Objective",
   "### Acceptance Criteria",
   "### Scope Boundaries",
-  "## Context",
+  "## Background",
+  "### Source Files",
+  "## Technical Context",
   "## Tasks",
   "## Verification Gate",
 ];
@@ -208,6 +210,35 @@ async function main() {
   if (!editRange) {
     // old_string not found in file — the Edit tool will handle this error itself
     return;
+  }
+
+  // Allow workers to edit ### Files Modified section
+  const filesModifiedSection = sections.find(
+    (s) => s.header === "### Files Modified"
+  );
+  if (
+    filesModifiedSection &&
+    editRange.startLine >= filesModifiedSection.startLine &&
+    editRange.endLine <= filesModifiedSection.endLine
+  ) {
+    // Validate format: each non-empty, non-comment line must match file entry format
+    const newString = payload?.tool_input?.new_string || "";
+    const newLines = newString
+      .split("\n")
+      .map((l) => l.trim())
+      .filter((l) => l && !l.startsWith("(") && !l.startsWith("### "));
+    for (const line of newLines) {
+      if (!line.match(/^-\s*`[^`]+`\s*[—–-]\s*.+/)) {
+        console.log(
+          JSON.stringify({
+            decision: "block",
+            reason: `Files Modified format error. Each entry must be: - \`/path\` — description. Got: "${line.substring(0, 80)}"`,
+          })
+        );
+        return;
+      }
+    }
+    return; // Format valid, allow edit
   }
 
   // Check if the edit falls within the ## Progress section (or after it)

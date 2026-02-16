@@ -850,30 +850,41 @@ const server = http.createServer(async (req, res) => {
   // API: file viewer — serves markdown files from dev-org/docs as HTML
   // -------------------------------------------------------------------------
   if (url.pathname === '/api/file' && req.method === 'GET') {
-    const relPath = url.searchParams.get('path');
-    if (!relPath) {
+    const reqPath = url.searchParams.get('path');
+    if (!reqPath) {
       sendError(res, 'path parameter required', 400);
       return;
     }
     // Sanitize: only allow alphanumeric, hyphens, underscores, dots, slashes
-    if (!/^[\w./-]+$/.test(relPath)) {
+    if (!/^[\w./-]+$/.test(reqPath)) {
       sendError(res, 'Invalid path', 400);
       return;
     }
-    const absPath = path.join(HANDLER_BASE, relPath);
-    // Prevent traversal outside HANDLER_BASE
-    if (!absPath.startsWith(HANDLER_BASE)) {
+    // Support absolute paths with allowlist, or relative paths against HANDLER_BASE
+    let absPath;
+    if (reqPath.startsWith('/')) {
+      absPath = path.resolve(reqPath);
+    } else {
+      absPath = path.resolve(path.join(HANDLER_BASE, reqPath));
+    }
+    // Security: allowlisted base directories only
+    const ALLOWED_BASES = [
+      path.resolve(HANDLER_BASE),
+      path.resolve('/home/eli/projects'),
+      path.resolve('/home/eli/dev-org'),
+    ];
+    if (!ALLOWED_BASES.some(base => absPath.startsWith(base + '/'))) {
       res.writeHead(403);
-      res.end('Forbidden');
+      res.end('Forbidden: path outside allowed directories');
       return;
     }
     fs.readFile(absPath, 'utf8', (err, content) => {
       if (err) {
-        sendError(res, 'File not found: ' + relPath, 404);
+        sendError(res, 'File not found: ' + reqPath, 404);
         return;
       }
       // Render as simple HTML with monospace styling
-      const title = relPath.split('/').pop().replace('.md', '');
+      const title = reqPath.split('/').pop().replace('.md', '');
       const escaped = content
         .replace(/&/g, '&amp;')
         .replace(/</g, '&lt;')

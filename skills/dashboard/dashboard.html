@@ -3979,17 +3979,47 @@ function renderPipeline(dispatches, state) {
           return typeof ac === 'string' ? ac : (ac.text || '');
         }).join('\n');
       }
+      // Build links array: merge auto-generated links with source file + files modified links
+      var decLinks = (d.links || []).slice();
+      // Add source files as links
+      if (d.sourceFiles && d.sourceFiles.length > 0) {
+        d.sourceFiles.forEach(function(sf) {
+          var shortPath = sf.path.replace(/^\/home\/eli\/projects\//, '');
+          decLinks.push({
+            label: shortPath,
+            url: '/api/file?path=' + encodeURIComponent(sf.path),
+            type: 'file',
+            description: sf.description,
+          });
+        });
+      }
+      // Add files modified as links (always, regardless of status)
+      if (d.filesModified && d.filesModified.length > 0) {
+        d.filesModified.forEach(function(fm) {
+          var shortPath = fm.path.replace(/^\/home\/eli\/projects\//, '');
+          decLinks.push({
+            label: shortPath + ' (modified)',
+            url: '/api/file?path=' + encodeURIComponent(fm.path),
+            type: 'file',
+            description: fm.description,
+          });
+        });
+      }
+
       decisions.push({
         dispatchId: d.id,
-        title: d.title || d.objective || 'Review dispatch',
+        // Use Decision Needed as title if available, fall back to dispatch title
+        title: d.decisionNeeded || d.title || d.objective || 'Review dispatch',
+        dispatchTitle: d.title || '',
         reason: 'user review',
         cost: d.budgetCap || null,
         project: d.project,
         type: d.type || '',
         repo: d.repo || '',
-        keyFiles: d.keyFiles || [],
+        sourceFiles: d.sourceFiles || [],
+        filesModified: d.filesModified || [],
         dispatchFile: d.filename || '',
-        links: d.links || [],
+        links: decLinks,
         source: 'dispatch-file',
         evidence: {
           description: d.objective || '',
@@ -4121,14 +4151,9 @@ function renderPipeline(dispatches, state) {
       decHtml += '<div class="evidence-section"><div class="evidence-label">Scope boundaries</div><div class="evidence-text">' + escapeHtml(d.evidence.risks) + '</div></div>';
     }
 
-    // --- Section 5: Key files ---
-    if (d.keyFiles && d.keyFiles.length > 0) {
-      decHtml += '<div class="evidence-section"><div class="evidence-label">Key files</div><div class="decision-links">';
-      d.keyFiles.forEach(function(kf) {
-        var shortPath = kf.path.replace(/^\/home\/eli\/projects\//, '');
-        decHtml += '<span class="key-file-link" title="' + escapeHtml(kf.description) + '"><code>' + escapeHtml(shortPath) + '</code> — ' + escapeHtml(kf.description) + '</span><br>';
-      });
-      decHtml += '</div></div>';
+    // --- Section 5: Dispatch title (when Decision Needed replaced the card title) ---
+    if (d.dispatchTitle && d.title !== d.dispatchTitle) {
+      decHtml += '<div class="evidence-section"><div class="evidence-label">Dispatch</div><div class="evidence-text">' + escapeHtml(d.dispatchTitle) + '</div></div>';
     }
 
     // --- Section 6: Dispatch file reference ---

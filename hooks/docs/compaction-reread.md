@@ -6,15 +6,17 @@ Post-compaction state preservation for handler and worker sessions.
 
 Two layers prevent context drift after compaction:
 
-1. **Continuous discipline** (skill-level) — handler checkpoints after Phase 1/2; workers checkpoint after each skill transition
+1. **Continuous discipline** (skill-level) — handler checkpoints after Phase 1/2; workers update `## Progress` in their dispatch file after each milestone
 2. **Structural enforcement** (hooks) — forces re-reading critical files after compaction completes
+
+> **Data model (2026-02-15):** Under the dispatch-as-ticket model, workers update their dispatch file in-place (Status, Progress, Result fields) instead of writing to separate checkpoint or result files. The `## Progress` section in the dispatch file replaces the old `handler-results/{slug}-checkpoint.md` pattern. See `docs/plans/2026-02-15-dispatch-as-ticket.md`.
 
 ### Session Types
 
 | Type | Detection | Re-read targets |
 |------|-----------|----------------|
-| Handler | `/tmp/claude-handler-{session_id}` marker exists | handler-state.md, active dispatches, blockers |
-| Worker | `HOME=/tmp/claude-worker-config` | dispatch contract, progress checkpoint |
+| Handler | `/tmp/claude-handler-{session_id}` marker exists | handler-state.md, active dispatch files |
+| Worker | `HOME=/tmp/claude-worker-config` | dispatch file only (contains contract + `## Progress` section) |
 | Regular | Neither | No action (silent pass-through) |
 
 ## Hook Flow
@@ -52,8 +54,8 @@ If Claude's post-compaction response uses NO tool calls:
   → No compaction marker?  → exit (PreToolUse already consumed it, or no compaction)
   → Marker found → delete marker → return decision:"block" with reason
 
-  Handler reason: re-read handler-state.md, dispatches, blockers
-  Worker reason:  re-read dispatch contract + checkpoint (paths resolved from marker)
+  Handler reason: re-read handler-state.md, active dispatch files
+  Worker reason:  re-read dispatch file (contains contract + ## Progress with incremental updates)
 ```
 
 ## Files
@@ -121,8 +123,9 @@ echo "/home/eli/projects/dev-org/docs/handler-dispatches/2026-02-13-test-task.md
 HOME=/tmp/claude-worker-config node compaction-reread.js precompact <<< '{"session_id":"test2"}'
 cat /tmp/claude-compaction-test2 | python3 -m json.tool
 
-# 3. Stop (should block with resolved paths)
+# 3. Stop (should block with dispatch file path — no checkpoint file reference)
 node compaction-reread.js stop <<< '{"session_id":"test2","stop_hook_active":false}'
+# Verify: reason references dispatch file only, not handler-results/ checkpoint
 
 # Cleanup
 rm -f /tmp/claude-compaction-test2 /tmp/claude-worker-config/.claude/worker-dispatch-path

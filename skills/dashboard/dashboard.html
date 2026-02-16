@@ -4013,7 +4013,7 @@ function renderPipeline(dispatches, state) {
 
   // Dispatch files with needsApproval are decisions (any non-terminal status)
   dispatches.forEach(function(d) {
-    if (d.needsApproval && d.status !== 'done' && d.status !== 'completed' && d.status !== 'running' && !decisions.find(dec => dec.dispatchId === d.id)) {
+    if (d.needsApproval && d.status !== 'done' && d.status !== 'completed' && d.status !== 'running' && d.status !== 'rejected' && !decisions.find(dec => dec.dispatchId === d.id)) {
       var acText = '';
       if (d.acceptanceCriteria && Array.isArray(d.acceptanceCriteria)) {
         acText = d.acceptanceCriteria.map(function(ac) {
@@ -4419,7 +4419,7 @@ async function rejectDispatch(id) {
 }
 
 function findDecisionCard(id) {
-  var btns = document.querySelectorAll('.decision-btn.yes');
+  var btns = document.querySelectorAll('.decision-btn');
   for (var i = 0; i < btns.length; i++) {
     var onclick = btns[i].getAttribute('onclick') || '';
     if (onclick.indexOf(id) !== -1) return btns[i].closest('.decision-item');

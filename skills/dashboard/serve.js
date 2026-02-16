@@ -770,6 +770,7 @@ const server = http.createServer(async (req, res) => {
             content = content.replace(/(\*\*Status\*\*\s*\|\s*)blocked[^|]*(\|)/, '$1queued $2');
             content = content.replace(/(\*\*Blocker\*\*\s*\|\s*)[^|]*(\|)/, '$1— $2');
           } else {
+            content = content.replace(/(\*\*Needs Approval\*\*\s*\|\s*)yes[^|]*(\|)/, '$1no — rejected $2');
             content = content.replace(/(\*\*Status\*\*\s*\|\s*)\w+(\s*\|)/, '$1rejected$2');
           }
           fs.writeFileSync(dispatchPath, content, 'utf8');

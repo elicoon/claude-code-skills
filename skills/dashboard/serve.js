@@ -743,8 +743,24 @@ const server = http.createServer(async (req, res) => {
 
       if (action === 'approve') {
         line = `\n| ${dispatchId} | APPROVED | ${timestamp} |`;
+        // Update the dispatch file: Needs Approval → no, Status → queued, clear Blocker
+        const dispatchPath = path.join(DISPATCHES_DIR, dispatchId + '.md');
+        if (fs.existsSync(dispatchPath)) {
+          let content = fs.readFileSync(dispatchPath, 'utf8');
+          content = content.replace(/(\*\*Needs Approval\*\*\s*\|\s*)yes[^|]*(\|)/, '$1no $2');
+          content = content.replace(/(\*\*Status\*\*\s*\|\s*)blocked[^|]*(\|)/, '$1queued $2');
+          content = content.replace(/(\*\*Blocker\*\*\s*\|\s*)[^|]*(\|)/, '$1— $2');
+          fs.writeFileSync(dispatchPath, content, 'utf8');
+        }
       } else if (action === 'reject') {
         line = `\n| ${dispatchId} | REJECTED | ${timestamp} |`;
+        // Update the dispatch file: Status → rejected
+        const dispatchPath = path.join(DISPATCHES_DIR, dispatchId + '.md');
+        if (fs.existsSync(dispatchPath)) {
+          let content = fs.readFileSync(dispatchPath, 'utf8');
+          content = content.replace(/(\*\*Status\*\*\s*\|\s*)\w+(\s*\|)/, '$1rejected$2');
+          fs.writeFileSync(dispatchPath, content, 'utf8');
+        }
       } else if (action === 'rework') {
         const feedback = (body.feedback || 'No feedback provided').replace(/[|]/g, '-');
         line = `\n| ${dispatchId} | REWORK | ${timestamp} | ${feedback} |`;

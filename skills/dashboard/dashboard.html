@@ -66,6 +66,30 @@
   .decision-item.decision-rejecting { background: rgba(248,81,73,0.15); transition: background 0.2s; }
   .decision-item.decision-reworking { background: rgba(210,153,34,0.15); transition: background 0.2s; }
 
+  /* Approve collapse animation */
+  .decision-item {
+    overflow: hidden;
+    transition: max-height 0.35s ease-in-out, opacity 0.3s ease-in-out, padding 0.35s ease-in-out, margin 0.35s ease-in-out, border-color 0.15s ease;
+    max-height: 500px;
+  }
+  .decision-item.decision-collapse {
+    max-height: 0;
+    opacity: 0;
+    padding-top: 0;
+    padding-bottom: 0;
+    border-bottom-width: 0;
+  }
+  .decision-item.decision-flash {
+    border-left: 3px solid rgba(63,185,80,0.9);
+    background: rgba(63,185,80,0.18);
+    box-shadow: inset 0 0 12px rgba(63,185,80,0.08);
+  }
+  .decision-item.decision-flash-deny {
+    border-left: 3px solid rgba(248,81,73,0.9);
+    background: rgba(248,81,73,0.18);
+    box-shadow: inset 0 0 12px rgba(248,81,73,0.08);
+  }
+
   /* Scanline overlay */
   body::after {
     content: '';
@@ -4359,7 +4383,17 @@ function populatePipelineProjectFilter(dispatches) {
 // ════════════════════════════════════════════
 async function approveDispatch(id) {
   try {
-    await fetch('/api/dispatches/' + encodeURIComponent(id) + '/approve', { method: 'POST' });
+    // Find the card and animate it
+    var card = findDecisionCard(id);
+    var fetchPromise = fetch('/api/dispatches/' + encodeURIComponent(id) + '/approve', { method: 'POST' });
+    if (card) {
+      card.classList.add('decision-flash');
+      await sleep(300);
+      card.classList.add('decision-collapse');
+      await Promise.all([fetchPromise, sleep(400)]);
+    } else {
+      await fetchPromise;
+    }
     fetchPipelineData();
   } catch (e) {
     showError('Failed to approve dispatch: ' + e.message);
@@ -4368,12 +4402,32 @@ async function approveDispatch(id) {
 
 async function rejectDispatch(id) {
   try {
-    await fetch('/api/dispatches/' + encodeURIComponent(id) + '/reject', { method: 'POST' });
+    var card = findDecisionCard(id);
+    var fetchPromise = fetch('/api/dispatches/' + encodeURIComponent(id) + '/reject', { method: 'POST' });
+    if (card) {
+      card.classList.add('decision-flash-deny');
+      await sleep(300);
+      card.classList.add('decision-collapse');
+      await Promise.all([fetchPromise, sleep(400)]);
+    } else {
+      await fetchPromise;
+    }
     fetchPipelineData();
   } catch (e) {
     showError('Failed to reject dispatch: ' + e.message);
   }
 }
+
+function findDecisionCard(id) {
+  var btns = document.querySelectorAll('.decision-btn.yes');
+  for (var i = 0; i < btns.length; i++) {
+    var onclick = btns[i].getAttribute('onclick') || '';
+    if (onclick.indexOf(id) !== -1) return btns[i].closest('.decision-item');
+  }
+  return null;
+}
+
+function sleep(ms) { return new Promise(function(r) { setTimeout(r, ms); }); }
 
 async function reworkDispatch(id, feedback) {
   if (!feedback || !feedback.trim()) return;

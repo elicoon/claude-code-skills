@@ -26,6 +26,7 @@
 
 const fs = require('fs');
 const path = require('path');
+const { execSync } = require('child_process');
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -35,7 +36,31 @@ function isWorkerSession() {
   return process.env.HOME === '/tmp/claude-worker-config';
 }
 
+function getTmuxWindowName() {
+  try {
+    const pane = process.env.TMUX_PANE;
+    if (!pane) return null;
+    return execSync(`tmux display-message -t "${pane}" -p "#{window_name}"`, {
+      encoding: 'utf-8',
+      timeout: 3000,
+    }).trim();
+  } catch {
+    return null;
+  }
+}
+
 function readWorkerDispatchPath() {
+  // Try per-window file first (keyed by tmux window name)
+  const windowName = getTmuxWindowName();
+  if (windowName) {
+    try {
+      const p = path.join(process.env.HOME, '.claude', `worker-dispatch-path-${windowName}`);
+      return fs.readFileSync(p, 'utf-8').trim();
+    } catch {
+      // Fall through to global singleton
+    }
+  }
+  // Fall back to global singleton for backwards compatibility
   try {
     const p = path.join(process.env.HOME, '.claude', 'worker-dispatch-path');
     return fs.readFileSync(p, 'utf-8').trim();

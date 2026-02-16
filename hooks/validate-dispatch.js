@@ -123,6 +123,92 @@ async function main() {
     }
   }
 
+  // Check 8: Source Files format — at least 1 entry, each matching format
+  const sourceFilesMatch = content.match(
+    /### Source Files\s*\n([\s\S]*?)(?=\n### |\n## |$)/
+  );
+  if (sourceFilesMatch) {
+    const sfContent = sourceFilesMatch[1].trim();
+    const sfLines = sfContent
+      .split("\n")
+      .map((l) => l.trim())
+      .filter((l) => l && !l.startsWith("("));
+    if (sfLines.length === 0) {
+      errors.push("Source Files must have at least 1 file entry");
+    }
+    for (const line of sfLines) {
+      if (!line.match(/^-\s*`[^`]+`\s*[—–-]\s*.+/)) {
+        errors.push(
+          `Source Files format error: "${line.substring(0, 60)}". Must be: - \`/path\` — description`
+        );
+      }
+      const pathMatch = line.match(/^-\s*`([^`]+)`/);
+      if (pathMatch) {
+        const fp = pathMatch[1];
+        if (fp.startsWith("./") || fp.startsWith("../") || fp.startsWith("~")) {
+          errors.push(`Source Files path must be absolute: ${fp}`);
+        }
+      }
+    }
+  }
+
+  // Check 9: Tasks must have at least 1 numbered step
+  const tasksMatch = content.match(/## Tasks\s*\n([\s\S]*?)(?=\n## |$)/);
+  if (tasksMatch) {
+    const numberedSteps = tasksMatch[1].match(/^\d+\.\s+/gm);
+    if (!numberedSteps || numberedSteps.length < 1) {
+      errors.push("Tasks must have at least 1 numbered step (1. ...)");
+    }
+  }
+
+  // Check 10: Verification Gate must have meaningful content
+  const vgMatch = content.match(
+    /## Verification Gate\s*\n([\s\S]*?)(?=\n## |$)/
+  );
+  if (vgMatch) {
+    const vgContent = vgMatch[1].trim();
+    if (vgContent.length < 10) {
+      errors.push(
+        "Verification Gate must have meaningful content (at least 10 characters)"
+      );
+    }
+  }
+
+  // Check 11: Background must not be empty
+  const bgMatch = content.match(/## Background\s*\n([\s\S]*?)(?=\n## |$)/);
+  if (bgMatch) {
+    const bgContent = bgMatch[1].trim();
+    if (bgContent.length < 10) {
+      errors.push("Background section must have meaningful content");
+    }
+  }
+
+  // Check 12: Technical Context must not be empty
+  const tcMatch = content.match(
+    /## Technical Context\s*\n([\s\S]*?)(?=\n## |$)/
+  );
+  if (tcMatch) {
+    const tcContent = tcMatch[1].trim();
+    if (tcContent.length < 10) {
+      errors.push("Technical Context section must have meaningful content");
+    }
+  }
+
+  // Check 13: Decision Needed required when Needs Approval = yes
+  if (approvalMatch) {
+    const approval = approvalMatch[1].trim().toLowerCase();
+    if (approval === "yes") {
+      const decisionMatch = content.match(
+        /\*\*Decision Needed\*\*\s*\|\s*([^|]+)/
+      );
+      if (!decisionMatch || decisionMatch[1].trim().length < 10) {
+        errors.push(
+          'When Needs Approval = yes, metadata must include **Decision Needed** with a clear question (≥10 chars)'
+        );
+      }
+    }
+  }
+
   if (errors.length > 0) {
     const msg = [
       "DISPATCH VALIDATION FAILED",

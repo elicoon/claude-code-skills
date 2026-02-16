@@ -48,7 +48,13 @@ async function main() {
     "## Objective",
     "### Acceptance Criteria",
     "### Scope Boundaries",
-    "## Context",
+    "## Background",
+    "## Related Files",
+    "### Source Files",
+    "### Files Modified",
+    "## Technical Context",
+    "## Tasks",
+    "## Verification Gate",
     "## Progress",
   ];
 

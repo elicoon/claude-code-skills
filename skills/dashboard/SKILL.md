@@ -115,5 +115,5 @@ None.
 
 ## Integrations
 
-- Handler data: `docs/handler-dispatches/`, `handler-results/`, `handler-blockers/`, `handler-state.md`
+- Handler data: `docs/handler-dispatches/` (single directory — dispatch files contain all lifecycle state), `handler-state.md`
 - Worker sessions: tmux sessions named `worker-*`

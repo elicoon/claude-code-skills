@@ -159,19 +159,16 @@ For each selected work item, write a dispatch file to:
 ~~~markdown
 # Dispatch: [Task Name]
 
-<!--
-HANDLER DISPATCH
-================
-This document contains everything needed to execute this task autonomously.
-Read the entire document before taking action.
-
-WORKER CONTRACT:
-1. Read this document completely before starting
-2. Use the specified skill chain below
-3. If blocked, write blocker to {DEV_ORG_PATH}/docs/handler-blockers/YYYY-MM-DD-<slug>.md and stop
-4. Do not merge PRs — create them and report back
-5. Write completion report to {DEV_ORG_PATH}/docs/handler-results/YYYY-MM-DD-<slug>.md before exiting
-6. Code review issues go through /debug-loop, not quick fixes (max 3 rounds)
+<!-- WORKER CONTRACT
+1. Read this entire document before starting any work
+2. Execute the skill chain specified in metadata
+3. Update ## Progress after each milestone (enforced by hooks — you will be blocked if you don't)
+4. If blocked: set Status to "blocked", fill Blocker field, describe in ## Progress, then STOP
+5. Do NOT merge PRs — create them and report back
+6. On completion: set Status to "completed", fill Result/Commit/PR/Completed fields, write final ## Progress entry
+7. Code review issues: /debug-loop (max 3 rounds), not quick fixes
+8. NEVER edit sections above ## Progress — those are the frozen contract (enforced by hooks)
+9. Progress entries are append-only — never delete or modify previous entries
 -->
 
 ## Metadata
@@ -182,10 +179,17 @@ WORKER CONTRACT:
 | **Repo** | [absolute path to repo] |
 | **Priority** | P[1-5] |
 | **Skill Chain** | [skill sequence] |
+| **Status** | queued |
+| **Needs Approval** | yes/no |
 | **Dispatched** | YYYY-MM-DD |
 | **Budget Cap** | ~X% of weekly allocation |
 | **Type** | cleanup / bugfix / test / docs / feature / feature-proposal / research |
 | **Source** | /scope |
+| **Result** | |
+| **Commit** | |
+| **PR** | |
+| **Blocker** | |
+| **Completed** | |
 
 ## Objective
 
@@ -224,24 +228,9 @@ Include specific file paths, recent commits, and codebase state.]
 1. [Specific verification command or check]
 2. [Expected output]
 
-## On Completion
+## Progress
 
-Write `{DEV_ORG_PATH}/docs/handler-results/YYYY-MM-DD-<slug>.md`:
-
-```
-## Result: [task name]
-- Commit: [hash]
-- PR: #[number] (or "no PR — [type] task")
-- Tests: [X passed, Y failed]
-- Code review: [clean / N issues found and resolved]
-- Blockers encountered: [none, or description]
-```
-
-## On Blocker
-
-1. Run `/retro` to analyze root cause
-2. Write `{DEV_ORG_PATH}/docs/handler-blockers/YYYY-MM-DD-<slug>.md`
-3. Stop work — do not attempt workarounds without handler approval
+<!-- Workers: append entries here after each milestone. Format: ### YYYY-MM-DD HH:MM — [milestone]. Never delete previous entries. -->
 ~~~
 
 **CRITICAL:** Before writing, resolve ALL `{DEV_ORG_PATH}` placeholders to the actual absolute path. Workers cannot resolve variables.
@@ -263,8 +252,8 @@ After writing each dispatch file, read it back and verify against this checklist
 | 5 | Context has file paths | At least 2 specific file paths mentioned |
 | 6 | Tasks are numbered steps | Not vague ("investigate") — each has expected outcome |
 | 7 | Verification gate matches type | PR work has code-review chain; non-PR has specific checks |
-| 8 | On Completion path is absolute | Full path to results file |
-| 9 | On Blocker path is absolute | Full path to blockers file |
+| 8 | Status field is "queued" | Metadata has Status=queued |
+| 9 | Progress section exists | `## Progress` section present at end of file |
 | 10 | No duplicate of active dispatch | Cross-checked against handler state |
 
 **If any check fails:** Fix the issue and re-validate. Do not proceed to Step 6 until all 10 checks pass.
@@ -279,8 +268,8 @@ Dispatch validation: [filename]
   [5] Context file paths ....... PASS
   [6] Numbered task steps ...... PASS
   [7] Verification gate ........ PASS
-  [8] Completion path .......... PASS
-  [9] Blocker path ............. PASS
+  [8] Status field queued ...... PASS
+  [9] Progress section ......... PASS
   [10] No duplicates ........... PASS
   RESULT: VALID
 ```

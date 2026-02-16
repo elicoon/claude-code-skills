@@ -23,21 +23,21 @@ tmux list-windows -F "#{window_index}|#{window_name}|#{pane_current_command}|#{p
 
 Parse each line. Worker windows are any window running `claude` as the pane command (exclude the window you're currently in — check your own PID or window name).
 
-### 0b: Check for result files
+### 0b: Check dispatch file statuses
 
 ```bash
-ls -1t ~/projects/dev-org/docs/handler-results/*.md 2>/dev/null
+grep -l 'Status.*completed' ~/projects/dev-org/docs/handler-dispatches/*.md 2>/dev/null
 ```
 
-Each file means a worker completed and wrote its report. Match filenames to dispatch IDs (e.g., `2026-02-12-golf-clip-fix-tests.md` matches the `gc-tests` window).
+Each match means a worker completed and updated its dispatch file. Match filenames to dispatch IDs (e.g., `2026-02-12-golf-clip-fix-tests.md` matches the `gc-tests` window).
 
-### 0c: Check for blocker files
+### 0c: Check for blocked dispatches
 
 ```bash
-ls -1t ~/projects/dev-org/docs/handler-blockers/*.md 2>/dev/null
+grep -l 'Status.*blocked' ~/projects/dev-org/docs/handler-dispatches/*.md 2>/dev/null
 ```
 
-Each file means a worker hit a blocker.
+Each match means a worker hit a blocker and updated the dispatch file's Status and Blocker fields.
 
 ### 0d: Check process activity signals
 
@@ -98,8 +98,8 @@ For each worker window, determine status using this priority:
 
 | Check | Status | Icon |
 |-------|--------|------|
-| Result file exists for this dispatch | `completed` | ✅ |
-| Blocker file exists for this dispatch | `blocked` | 🔴 |
+| Dispatch file has Status=completed | `completed` | ✅ |
+| Dispatch file has Status=blocked | `blocked` | 🔴 |
 | Claude process not running (pane command != claude) | `exited` | ⚫ |
 | Pane command is `bash` or shell (claude exited to shell) | `exited` | ⚫ |
 | Idle > 15 min AND no CPU accumulation | `stalled?` | 🟠 |
@@ -175,4 +175,4 @@ After the table, add a brief section:
 | tmux not running | "No tmux session found. Workers may have exited." |
 | No worker windows | "No active workers found. Run `/handler` to dispatch work." |
 | handler-state.md missing | Show windows without dispatch matching — use window names only |
-| Process exited but no result file | "Worker exited without writing results — may have crashed. Check `tmux select-window -t <name>` for error output." |
+| Process exited but dispatch Status still "running" | "Worker exited without updating dispatch Status — may have crashed. Check `tmux select-window -t <name>` for error output." |

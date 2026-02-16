@@ -38,7 +38,7 @@ When invoked by the heartbeat loop (no user present), the handler runs a restric
 
 **Phase 1 (Lightweight scan):**
 - Step 1.1: Read handler-state.md
-- Step 1.5: Read worker results + blockers
+- Step 1.5: Scan dispatch files for Status transitions (completed/blocked)
 - Skip Steps 1.2–1.4 (full backlog/repo/GitHub scans — too heavy for 30-min cadence)
 
 **Phase 2 (Handler-level orchestration):**
@@ -100,8 +100,6 @@ If `{DEV_ORG_PATH}/docs/handler-state.md` does not exist, this is the first run.
 
 ```bash
 mkdir -p {DEV_ORG_PATH}/docs/handler-dispatches
-mkdir -p {DEV_ORG_PATH}/docs/handler-results
-mkdir -p {DEV_ORG_PATH}/docs/handler-blockers
 ```
 
 ### Step F2: Create initial handler state file
@@ -260,14 +258,11 @@ For repos with recent activity (pushed in last 14 days), also check:
 
 ### Step 1.5: Read Worker Results
 
-Check for files in `{DEV_ORG_PATH}/docs/handler-results/`. For each:
-- Parse completion report (commit hash, PR number, test results, blockers)
-- Match to active dispatches in handler state
-- Mark matched dispatches as complete
-
-Check for files in `{DEV_ORG_PATH}/docs/handler-blockers/`. For each:
-- Parse blocker description and proposed resolution
-- Flag for user attention or auto-resolution
+Scan dispatch files in `{DEV_ORG_PATH}/docs/handler-dispatches/` for Status field changes:
+- **Completed dispatches** have `Status=completed` with a `Result` field in their metadata. Parse the Result, Commit, PR, and Completed fields.
+- **Blocked dispatches** have `Status=blocked` with a `Blocker` field in their metadata. Read the `## Progress` section for details.
+- Match status transitions to active dispatches in handler state
+- Mark completed dispatches as complete; flag blocked dispatches for user attention or auto-resolution
 
 ### Step 1.6: Checkpoint — Save Scan State
 
@@ -329,7 +324,7 @@ Do NOT attempt to identify work opportunities yourself — that is the product-s
 Work is **blocked** if:
 - A task in the backlog has status "blocked" or mentions a blocker
 - A PR has failing checks or is waiting on review
-- A worker wrote a blocker file
+- A worker set Status=blocked in its dispatch file
 - A repo has uncommitted work older than 3 days (possible abandoned WIP)
 
 For each blocker, classify:
@@ -460,20 +455,16 @@ Create `{DEV_ORG_PATH}/docs/handler-dispatches/YYYY-MM-DD-<project>-<task-slug>.
 ~~~markdown
 # Dispatch: [Task Name]
 
-<!--
-HANDLER DISPATCH
-================
-This document contains everything needed to execute this task autonomously.
-Read the entire document before taking action.
-
-WORKER CONTRACT:
-1. Read this document completely before starting
-2. Use the specified skill chain below
-3. If blocked, write blocker to docs/handler-blockers/YYYY-MM-DD-<slug>.md and stop
-4. Do not merge PRs — create them and report back
-5. Write completion report to docs/handler-results/YYYY-MM-DD-<slug>.md before exiting
-6. Code review issues go through /debug-loop, not quick fixes (max 3 rounds)
-7. After each skill in the chain completes, write a progress checkpoint to docs/handler-results/YYYY-MM-DD-<slug>-checkpoint.md with: what's done, what's next, open questions
+<!-- WORKER CONTRACT
+1. Read this entire document before starting any work
+2. Execute the skill chain specified in metadata
+3. Update ## Progress after each milestone (enforced by hooks — you will be blocked if you don't)
+4. If blocked: set Status to "blocked", fill Blocker field, describe in ## Progress, then STOP
+5. Do NOT merge PRs — create them and report back
+6. On completion: set Status to "completed", fill Result/Commit/PR/Completed fields, write final ## Progress entry
+7. Code review issues: /debug-loop (max 3 rounds), not quick fixes
+8. NEVER edit sections above ## Progress — those are the frozen contract (enforced by hooks)
+9. Progress entries are append-only — never delete or modify previous entries
 -->
 
 ## Metadata
@@ -484,8 +475,15 @@ WORKER CONTRACT:
 | **Repo** | [full path to repo] |
 | **Priority** | P[1-3] |
 | **Skill Chain** | [skill sequence from routing table] |
+| **Status** | queued |
+| **Needs Approval** | yes/no |
 | **Dispatched** | YYYY-MM-DD HH:MM |
 | **Budget Cap** | ~X% of weekly allocation |
+| **Result** | |
+| **Commit** | |
+| **PR** | |
+| **Blocker** | |
+| **Completed** | |
 
 ## Objective
 
@@ -511,37 +509,13 @@ All PR-producing work must pass this sequence before creating a PR:
 
 1. Run `/code-review` on implementation
 2. If issues found → run `/debug-loop` on each issue (not quick fixes — max 3 rounds)
-3. Re-run `/code-review` — if still failing after 3 rounds, write blocker and stop
+3. Re-run `/code-review` — if still failing after 3 rounds, set Status to "blocked", fill Blocker field, describe in ## Progress, and stop
 4. Run `/test-feature` — capture actual output as evidence
 5. Create PR with test evidence in description
 
-## On Completion
+## Progress
 
-Write `{DEV_ORG_PATH}/docs/handler-results/YYYY-MM-DD-<slug>.md`:
-
-```
-## Result: [task name]
-- Commit: [hash]
-- PR: #[number] (or "no PR — research/grooming task")
-- Tests: [X passed, Y failed]
-- Code review: [clean / N issues found and resolved]
-- Blockers encountered: [none, or description]
-```
-
-## On Blocker
-
-1. Run `/retro` to analyze root cause
-2. Write `{DEV_ORG_PATH}/docs/handler-blockers/YYYY-MM-DD-<slug>.md`:
-
-```
-## Blocker: [task name]
-- Step blocked at: [what was being attempted]
-- Root cause: [from retro analysis]
-- Proposed resolution: [what would unblock this]
-- Needs user input: [yes/no — and what specifically]
-```
-
-3. Stop work — do not attempt workarounds without handler approval
+<!-- Workers: append entries here after each milestone. Format: ### YYYY-MM-DD HH:MM — [milestone]. Never delete previous entries. -->
 ~~~
 
 **IMPORTANT:** Before writing the dispatch file, resolve ALL `{DEV_ORG_PATH}` placeholders to the actual absolute path (e.g., `/home/eli/projects/dev-org`). Workers are launched in the target project's directory and have no way to resolve dev-org path variables. The dispatch file must contain concrete paths.
@@ -718,9 +692,9 @@ These rules exist because a previous project (traffic-control, Jan 2026) failed 
 3. Re-run `/code-review` — if still failing after 3 rounds, write blocker and stop
 4. Run `/test-feature` — capture actual output as evidence
 5. Create PR with test evidence in description
-6. Worker writes completion report to `docs/handler-results/`
+6. Worker sets Status to "completed" and fills Result/Commit/PR/Completed fields in the dispatch file, writes final `## Progress` entry
 
-**The handler never merges a PR without reviewing the test evidence in the completion report.**
+**The handler never merges a PR without reviewing the test evidence in the dispatch file's Progress section.**
 
 ---
 
@@ -734,7 +708,7 @@ These rules exist because a previous project (traffic-control, Jan 2026) failed 
 | GitHub API rate limited | Skip GitHub scan, note in briefing, use local data only |
 | A project repo not found locally | Note as "remote-only" in briefing, use GitHub data |
 | Budget tracking data unavailable | Estimate from check-in log, flag uncertainty |
-| handler-state.md has parse errors | Back up current file, reconstruct from dispatch/results/blockers directories, flag in briefing |
+| handler-state.md has parse errors | Back up current file, reconstruct from dispatch files (Status fields + Progress sections), flag in briefing |
 | `/test-feature` fails after code-review passes | Run `/debug-loop` on the failing test, then re-run verification gate from step 1. Same 3-round cap applies. |
 | tmux not running | Always use manual dispatch fallback (copy-paste commands) |
 

@@ -1256,17 +1256,34 @@
   .decision-content { flex: 1; }
 
   .decision-desc {
-    font-size: 0.78rem;
-    color: var(--text-primary);
     line-height: 1.4;
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    flex-wrap: wrap;
     margin-bottom: 0.3rem;
   }
 
-  .decision-desc-text { flex-shrink: 0; }
+  .dispatch-project {
+    display: block;
+    font-size: 0.65rem;
+    font-weight: 600;
+    color: var(--text-muted);
+    text-transform: lowercase;
+    letter-spacing: 0.03em;
+    margin-bottom: 0.15rem;
+  }
+
+  .decision-desc-text {
+    display: block;
+    font-size: 0.82rem;
+    color: var(--text-primary);
+    font-weight: 500;
+  }
+
+  .decision-badges {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+    flex-wrap: wrap;
+    margin-top: 0.25rem;
+  }
 
   .decision-reason {
     display: inline-block;
@@ -4056,17 +4073,18 @@ function renderPipeline(dispatches, state) {
     decHtml += '<div class="decision-number">#' + (i + 1) + '</div>';
     decHtml += '<div class="decision-content">';
     decHtml += '<div class="decision-desc">';
-    // Project label + title
+    // Project label (small, above title)
     if (proj) {
-      decHtml += '<span class="dispatch-project">' + escapeHtml(proj) + '</span> ';
+      decHtml += '<span class="dispatch-project">' + escapeHtml(proj) + '</span>';
     }
+    // Decision title (prominent)
     decHtml += '<span class="decision-desc-text">' + escapeHtml(d.title) + '</span>';
-    // Reason badge — only classify queued dispatches by keyword; pending decisions get generic badge
+    // Badges row (reason, cost, type)
+    decHtml += '<div class="decision-badges">';
     if (d.reason) {
       var reasonClass = 'user-review';
       var reasonLabel = 'needs review';
       if (d.source !== 'pending-decision') {
-        // Queued dispatches have structured reason text from handler-state
         if (/irreversible/i.test(d.reason)) { reasonClass = 'irreversible'; reasonLabel = 'irreversible'; }
         else if (/budget/i.test(d.reason)) { reasonClass = 'budget'; reasonLabel = 'budget'; }
         else if (/content/i.test(d.reason)) { reasonClass = 'user-review'; reasonLabel = 'content approval'; }
@@ -4075,16 +4093,15 @@ function renderPipeline(dispatches, state) {
       } else {
         reasonLabel = 'pending decision';
       }
-      decHtml += ' <span class="decision-reason ' + reasonClass + '">' + escapeHtml(reasonLabel) + '</span>';
+      decHtml += '<span class="decision-reason ' + reasonClass + '">' + escapeHtml(reasonLabel) + '</span>';
     }
-    // Cost / budget cap
     if (d.cost) {
-      decHtml += ' <span class="decision-cost">' + escapeHtml(d.cost) + '</span>';
+      decHtml += '<span class="decision-cost">' + escapeHtml(d.cost) + '</span>';
     }
-    // Type badge
     if (d.type) {
-      decHtml += ' <span class="decision-type">' + escapeHtml(d.type) + '</span>';
+      decHtml += '<span class="decision-type">' + escapeHtml(d.type) + '</span>';
     }
+    decHtml += '</div>'; // decision-badges
     decHtml += '</div>'; // decision-desc
 
     // Start server button for deploy-type dispatches (visible in collapsed view)

@@ -163,11 +163,14 @@ function handlePostSkill(hookData, marker) {
 function handlePostBash(hookData, marker) {
   const command = hookData?.tool_input?.command || '';
 
-  // If the bash command references the dispatch file (e.g. echo >> dispatch.md),
-  // treat it like a dispatch write — don't trigger, and don't increment counter.
-  // This is unlikely but explicitly called out in the spec.
-  if (marker.dispatch_file && command.includes(marker.dispatch_file)) {
-    return marker;
+  // Only skip counting for bash commands that write to the dispatch file.
+  // Read-only commands (cat, head) that reference it still count toward backstop.
+  if (marker.dispatch_file) {
+    const df = marker.dispatch_file;
+    const writesDispatch = command.includes(`> ${df}`) || command.includes(`>> ${df}`) || command.includes(`tee ${df}`);
+    if (writesDispatch) {
+      return marker;
+    }
   }
 
   // Check for git commit
@@ -216,6 +219,7 @@ function handlePreToolUse(hookData, marker) {
   // Block with helpful message
   const trigger = marker.trigger || 'recent activity';
   const dispatchPath = marker.dispatch_file || 'your dispatch file';
+  process.stderr.write(`require-progress-checkpoint: Blocking — checkpoint needed (${trigger})\n`);
   block(
     `Progress checkpoint required. Update ## Progress in your dispatch file with what you just did (${trigger}). Then continue.\n\nDispatch file: ${dispatchPath}`
   );

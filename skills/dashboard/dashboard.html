@@ -3970,9 +3970,9 @@ function renderPipeline(dispatches, state) {
     });
   }
 
-  // v2: dispatches with needsApproval flag and queued status are decisions
+  // Dispatch files with needsApproval are decisions (any non-terminal status)
   dispatches.forEach(function(d) {
-    if (d.needsApproval && d.status === 'queued' && !decisions.find(dec => dec.dispatchId === d.id)) {
+    if (d.needsApproval && d.status !== 'done' && d.status !== 'completed' && d.status !== 'running' && !decisions.find(dec => dec.dispatchId === d.id)) {
       var acText = '';
       if (d.acceptanceCriteria && Array.isArray(d.acceptanceCriteria)) {
         acText = d.acceptanceCriteria.map(function(ac) {
@@ -4029,6 +4029,11 @@ function renderPipeline(dispatches, state) {
       });
     }
   });
+
+  // Remove stale queued-dispatch decisions — handler-state.md table is superseded by dispatch files
+  for (var i = decisions.length - 1; i >= 0; i--) {
+    if (decisions[i].source === 'queued-dispatch') decisions.splice(i, 1);
+  }
 
   const countLabel = document.getElementById('decisions-count-label');
   countLabel.textContent = decisions.length + ' decision' + (decisions.length !== 1 ? 's' : '') + ' awaiting approval';

@@ -16,8 +16,8 @@ const ROOT = __dirname;
 // Handler data directories
 const HANDLER_BASE = '/home/eli/dev-org/docs';
 const DISPATCHES_DIR = path.join(HANDLER_BASE, 'handler-dispatches');
-const RESULTS_DIR = path.join(HANDLER_BASE, 'handler-results');   // legacy — used by decision link enrichment
-const BLOCKERS_DIR = path.join(HANDLER_BASE, 'handler-blockers'); // legacy — kept for archive access
+const RESULTS_DIR = path.join(HANDLER_BASE, 'handler-results-archive');  // archived results (new results live in dispatch files)
+const BLOCKERS_DIR = path.join(HANDLER_BASE, 'handler-blockers-archive'); // archived blockers (new blockers live in dispatch files)
 const STATE_FILE = path.join(HANDLER_BASE, 'handler-state.md');
 
 const MIME = {
@@ -78,7 +78,8 @@ function findDecisionLinks(stateContent) {
       }
     }
 
-    // Find related handler results (completed work for same project)
+    // Find related handler results from archive (completed work for same project)
+    // TODO: Also extract results from dispatch files' ## Progress sections
     // Extract PR numbers from question for matching against filenames
     const prNums = [];
     for (const m of question.matchAll(/PR\s*#(\d+)/gi)) prNums.push('pr' + m[1]);
@@ -102,7 +103,7 @@ function findDecisionLinks(stateContent) {
             const title = titleLine ? titleLine[1].replace(/^Result:\s*/i, '').substring(0, 80) : rf;
             decLinks.push({
               label: title,
-              url: '/api/file?path=handler-results/' + rf,
+              url: '/api/file?path=handler-results-archive/' + rf,
               type: 'result',
             });
           } catch (e) { /* skip unreadable */ }

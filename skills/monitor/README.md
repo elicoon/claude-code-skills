@@ -5,7 +5,7 @@ Quick status dashboard for handler worker sessions running in tmux.
 ## What it does
 
 - Scans all tmux windows for running Claude Code workers
-- Checks handler-results/ and handler-blockers/ for completed/blocked workers
+- Checks dispatch files in handler-dispatches/ for completed/blocked workers (Status and Blocker fields)
 - Captures recent output to determine activity and token usage
 - Presents a single status table with actionable recommendations
 

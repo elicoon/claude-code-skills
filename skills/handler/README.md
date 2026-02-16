@@ -29,9 +29,7 @@ Daily check-in AI product manager. Scans all projects, dispatches autonomous wor
 | File | Location | Purpose |
 |------|----------|---------|
 | Handler state | `dev-org/docs/handler-state.md` | Persistent memory between check-ins |
-| Dispatch files | `dev-org/docs/handler-dispatches/` | Instructions for worker sessions |
-| Worker results | `dev-org/docs/handler-results/` | Completion reports from workers |
-| Worker blockers | `dev-org/docs/handler-blockers/` | Blocker reports from workers |
+| Dispatch files | `dev-org/docs/handler-dispatches/` | Instructions for worker sessions (single source of truth — workers write progress, results, and blockers directly into dispatch files) |
 
 ## Config Variables
 

@@ -61,7 +61,7 @@ function buildHandlerReason() {
     'Context was just compacted. Before continuing:',
     '1. Re-read docs/handler-state.md for current orchestration state',
     '2. Re-read all files in docs/handler-dispatches/ that are active',
-    '3. Re-read any files in docs/handler-blockers/',
+    '3. Check active dispatch files for Status: blocked and Blocker fields',
     '4. Acknowledge what you\'ve re-read, then continue your work.',
   ].join('\n');
 }

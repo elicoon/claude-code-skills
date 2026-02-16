@@ -49,8 +49,7 @@ async function main() {
     "### Acceptance Criteria",
     "### Scope Boundaries",
     "## Context",
-    "## On Completion",
-    "## On Blocker",
+    "## Progress",
   ];
 
   for (const section of requiredSections) {
@@ -80,7 +79,7 @@ async function main() {
   }
 
   // Check 4: Metadata table has required fields
-  const requiredMeta = ["Project", "Repo", "Priority", "Dispatched"];
+  const requiredMeta = ["Project", "Repo", "Priority", "Dispatched", "Status", "Needs Approval"];
   for (const field of requiredMeta) {
     if (!content.includes(`**${field}**`)) {
       errors.push(`Metadata missing required field: ${field}`);
@@ -100,15 +99,21 @@ async function main() {
     }
   }
 
-  // Check 6: On Completion has absolute path
-  const completionSection = content.match(
-    /## On Completion\s*\n([\s\S]*?)(?=\n## |$)/
-  );
-  if (completionSection) {
-    const hasAbsPath =
-      /[A-Z]:\\|\/home\/|\/Users\//.test(completionSection[1]);
-    if (!hasAbsPath) {
-      errors.push("On Completion section must contain an absolute path to the results file");
+  // Check 6: Status must be "queued" on creation
+  const statusMatch = content.match(/\*\*Status\*\*\s*\|\s*([^|]+)/);
+  if (statusMatch) {
+    const status = statusMatch[1].trim().toLowerCase();
+    if (status !== "queued") {
+      errors.push(`Status must be "queued" on creation, got: "${statusMatch[1].trim()}"`);
+    }
+  }
+
+  // Check 7: Needs Approval must be "yes" or "no"
+  const approvalMatch = content.match(/\*\*Needs Approval\*\*\s*\|\s*([^|]+)/);
+  if (approvalMatch) {
+    const approval = approvalMatch[1].trim().toLowerCase();
+    if (approval !== "yes" && approval !== "no") {
+      errors.push(`Needs Approval must be "yes" or "no", got: "${approvalMatch[1].trim()}"`);
     }
   }
 

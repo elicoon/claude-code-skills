@@ -56,18 +56,6 @@ function readWorkerDispatchPath() {
   }
 }
 
-function derivePathsFromDispatchFile(dispatchFile) {
-  // dispatch file: /home/eli/projects/dev-org/docs/handler-dispatches/2026-02-13-slug.md
-  // slug: filename without .md extension
-  // checkpoint: /home/eli/projects/dev-org/docs/handler-results/{slug}-checkpoint.md
-  const filename = path.basename(dispatchFile, '.md');
-  const dispatchesDir = path.dirname(dispatchFile);
-  const docsDir = path.dirname(dispatchesDir);
-  const devOrgDir = path.dirname(docsDir);
-  const checkpointPath = path.join(devOrgDir, 'docs', 'handler-results', `${filename}-checkpoint.md`);
-  return { devOrgDir, checkpointPath };
-}
-
 function buildHandlerReason() {
   return [
     'Context was just compacted. Before continuing:',
@@ -78,12 +66,12 @@ function buildHandlerReason() {
   ].join('\n');
 }
 
-function buildWorkerReason(dispatchFile, checkpointPath) {
+function buildWorkerReason(dispatchFile) {
   return [
     'Context was just compacted. Before continuing:',
-    `1. Re-read your dispatch contract at ${dispatchFile}`,
-    `2. Re-read your progress checkpoint at ${checkpointPath}`,
-    '3. Acknowledge the contract, your progress, and what\'s next. Then continue.',
+    `1. Re-read your dispatch file at ${dispatchFile}`,
+    '2. Review the ## Progress section for what you have already completed.',
+    '3. Acknowledge what is done, what is next, then continue.',
   ].join('\n');
 }
 
@@ -152,10 +140,9 @@ async function main() {
     if (markerData.type === 'handler') {
       reason = buildHandlerReason();
     } else if (markerData.type === 'worker' && markerData.dispatch_file) {
-      const { checkpointPath } = derivePathsFromDispatchFile(markerData.dispatch_file);
-      reason = buildWorkerReason(markerData.dispatch_file, checkpointPath);
+      reason = buildWorkerReason(markerData.dispatch_file);
     } else if (markerData.type === 'worker') {
-      reason = 'Context was just compacted. Re-read your dispatch contract and any checkpoint files before continuing.';
+      reason = 'Context was just compacted. Re-read your dispatch file and review the ## Progress section before continuing.';
     } else {
       process.exit(0);
     }
@@ -188,11 +175,10 @@ async function main() {
     if (markerData.type === 'handler') {
       reason = buildHandlerReason();
     } else if (markerData.type === 'worker' && markerData.dispatch_file) {
-      const { checkpointPath } = derivePathsFromDispatchFile(markerData.dispatch_file);
-      reason = buildWorkerReason(markerData.dispatch_file, checkpointPath);
+      reason = buildWorkerReason(markerData.dispatch_file);
     } else if (markerData.type === 'worker') {
       // Worker without dispatch path — generic re-read
-      reason = 'Context was just compacted. Re-read your dispatch contract and any checkpoint files before continuing.';
+      reason = 'Context was just compacted. Re-read your dispatch file and review the ## Progress section before continuing.';
     } else {
       // Unknown type — shouldn't happen but handle gracefully
       process.exit(0);

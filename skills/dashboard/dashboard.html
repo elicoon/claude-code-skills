@@ -3610,14 +3610,6 @@ function connectSSE() {
       sseLastEventTime = Date.now();
       fetchPipelineData();
     });
-    sseConnection.addEventListener('results:changed', function() {
-      sseLastEventTime = Date.now();
-      fetchPipelineData();
-    });
-    sseConnection.addEventListener('blockers:changed', function() {
-      sseLastEventTime = Date.now();
-      fetchPipelineData();
-    });
     sseConnection.addEventListener('state:changed', function() {
       sseLastEventTime = Date.now();
       fetchPipelineData();
@@ -3671,54 +3663,20 @@ function connectSSE() {
 async function fetchPipelineData() {
   try {
     const [dispatchRes, stateRes] = await Promise.all([
-      fetch('/api/dispatches').then(r => r.ok ? r.json() : { dispatches: [], results: [], blockers: [] }),
+      fetch('/api/dispatches').then(r => r.ok ? r.json() : { dispatches: [] }),
       fetch('/api/handler-state').then(r => r.ok ? r.json() : null),
     ]);
-    // Merge results and blockers into dispatch objects
+    // v2: dispatch files are the single source of truth — lifecycle fields already promoted by server
     const dispatchData = dispatchRes.dispatches || [];
-    const results = dispatchRes.results || [];
-    const blockers = dispatchRes.blockers || [];
 
-    // Create lookup maps
-    const resultMap = {};
-    results.forEach(function(r) {
-      // Match result to dispatch by id prefix
-      const dispId = r.dispatch || r.id;
-      resultMap[dispId] = r;
-    });
-    const blockerMap = {};
-    blockers.forEach(function(b) {
-      const dispId = b.dispatch || b.id;
-      blockerMap[dispId] = b;
-    });
-
-    // Enrich dispatch objects
+    // Extract priority as numeric from metadata if not already set
     dispatchData.forEach(function(d) {
-      if (resultMap[d.id]) {
-        d.result = resultMap[d.id];
-        d.status = 'completed';
+      if (!d.priority && d.metadata && d.metadata.priority) {
+        const pm = d.metadata.priority.match(/(\d)/);
+        if (pm) d.priority = parseInt(pm[1]);
       }
-      if (blockerMap[d.id]) {
-        d.blocker = blockerMap[d.id].blocker || blockerMap[d.id].title;
-        d.status = d.status || 'blocked';
-      }
-      // Extract fields from metadata if present
-      if (d.metadata) {
-        if (!d.project && d.metadata.project) d.project = d.metadata.project;
-        if (!d.priority && d.metadata.priority) {
-          const pm = d.metadata.priority.match(/(\d)/);
-          if (pm) d.priority = parseInt(pm[1]);
-        }
-        if (d.metadata.needs_user_review && /yes/i.test(d.metadata.needs_user_review)) {
-          d.needsReview = true;
-        }
-        if (d.metadata.worker) d.workerName = d.metadata.worker;
-        if (d.metadata.status) {
-          const ms = d.metadata.status.toLowerCase();
-          if (ms.includes('active') || ms.includes('running')) d.status = d.status || 'active';
-          if (ms.includes('queued') || ms.includes('pending')) d.status = d.status || 'queued';
-        }
-      }
+      // Map worker to workerName for card rendering compatibility
+      if (d.worker && !d.workerName) d.workerName = d.worker;
     });
 
     pipelineDispatches = dispatchData;
@@ -4012,17 +3970,32 @@ function renderPipeline(dispatches, state) {
     });
   }
 
-  // Also check dispatches flagged as needing review
+  // v2: dispatches with needsApproval flag and queued status are decisions
   dispatches.forEach(function(d) {
-    if (d.needsReview && !decisions.find(dec => dec.dispatchId === d.id)) {
+    if (d.needsApproval && d.status === 'queued' && !decisions.find(dec => dec.dispatchId === d.id)) {
+      var acText = '';
+      if (d.acceptanceCriteria && Array.isArray(d.acceptanceCriteria)) {
+        acText = d.acceptanceCriteria.map(function(ac) {
+          return typeof ac === 'string' ? ac : (ac.text || '');
+        }).join('\n');
+      }
       decisions.push({
         dispatchId: d.id,
         title: d.title || d.objective || 'Review dispatch',
         reason: 'user review',
-        cost: d.estimatedCost || null,
+        cost: d.budgetCap || null,
         project: d.project,
+        type: d.type || '',
+        repo: d.repo || '',
+        keyFiles: d.keyFiles || [],
+        dispatchFile: d.filename || '',
         links: d.links || [],
-        evidence: d.evidence || null,
+        source: 'dispatch-file',
+        evidence: {
+          description: d.objective || '',
+          verification: acText,
+          risks: d.scopeBoundaries || '',
+        },
       });
     }
   });
@@ -4178,20 +4151,12 @@ function renderPipeline(dispatches, state) {
   });
   decisionsList.innerHTML = decHtml;
 
-  // --- Categorize dispatches into kanban columns ---
-  const activeIds = new Set();
-  if (state && state.activeDispatches) {
-    state.activeDispatches.forEach(function(d) { activeIds.add(d.id || d); });
-  }
-
+  // --- Categorize dispatches into kanban columns (v2: direct Status read) ---
   const categorized = { queued: [], active: [], blocked: [], completed: [] };
   dispatches.forEach(function(d) {
-    if (d.result || d.status === 'completed') {
-      categorized.completed.push(d);
-    } else if (d.blocker || d.status === 'blocked') {
-      categorized.blocked.push(d);
-    } else if (activeIds.has(d.id) || d.status === 'active' || d.workerName) {
-      categorized.active.push(d);
+    const status = d.status || 'queued';
+    if (categorized[status]) {
+      categorized[status].push(d);
     } else {
       categorized.queued.push(d);
     }
@@ -4218,9 +4183,9 @@ function renderPipeline(dispatches, state) {
 
       html += '<div class="card-top">';
       html += '<span class="card-project">' + escapeHtml(proj) + '</span>';
-      if (isCompleted && d.result) {
-        const badge = d.result.pr ? 'pr-ready' : 'success';
-        const label = d.result.pr ? 'PR #' + d.result.pr : '&#10003; done';
+      if (isCompleted) {
+        const badge = d.pr ? 'pr-ready' : 'success';
+        const label = d.pr ? 'PR #' + d.pr : '&#10003; done';
         html += '<span class="result-badge ' + badge + '">' + label + '</span>';
       } else if (priLabel) {
         html += '<span class="card-priority ' + pri + '">' + priLabel + '</span>';
@@ -4247,7 +4212,9 @@ function renderPipeline(dispatches, state) {
       html += '<dl class="card-details">';
       if (d.objective) { html += '<dt>Objective</dt><dd>' + escapeHtml(d.objective) + '</dd>'; }
       if (d.blocker) { html += '<dt>Blocker</dt><dd style="color:var(--status-blocked);">' + escapeHtml(d.blocker) + '</dd>'; }
-      if (d.result && d.result.summary) { html += '<dt>Result</dt><dd>' + escapeHtml(d.result.summary) + '</dd>'; }
+      if (d.resultSummary) { html += '<dt>Result</dt><dd>' + escapeHtml(d.resultSummary) + '</dd>'; }
+      if (d.commit) { html += '<dt>Commit</dt><dd>' + escapeHtml(d.commit) + '</dd>'; }
+      if (d.progress) { html += '<dt>Progress</dt><dd>' + escapeHtml(d.progress) + '</dd>'; }
       html += '</dl>';
 
       if (!isCompleted) {

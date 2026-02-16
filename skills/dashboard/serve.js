@@ -16,8 +16,8 @@ const ROOT = __dirname;
 // Handler data directories
 const HANDLER_BASE = '/home/eli/dev-org/docs';
 const DISPATCHES_DIR = path.join(HANDLER_BASE, 'handler-dispatches');
-const RESULTS_DIR = path.join(HANDLER_BASE, 'handler-results');
-const BLOCKERS_DIR = path.join(HANDLER_BASE, 'handler-blockers');
+const RESULTS_DIR = path.join(HANDLER_BASE, 'handler-results');   // legacy — used by decision link enrichment
+const BLOCKERS_DIR = path.join(HANDLER_BASE, 'handler-blockers'); // legacy — kept for archive access
 const STATE_FILE = path.join(HANDLER_BASE, 'handler-state.md');
 
 const MIME = {
@@ -110,27 +110,42 @@ function findDecisionLinks(stateContent) {
       }
     } catch (e) { /* results dir missing */ }
 
-    // Find related plan/design docs
-    try {
-      const planFiles = fs.readdirSync(PLANS_DIR).filter(f => f.endsWith('.md'));
-      const projSlug = project.toLowerCase().replace(/[^a-z0-9]/g, '');
-      for (const pf of planFiles) {
-        const pfSlug = pf.toLowerCase().replace(/[^a-z0-9]/g, '');
-        if (pfSlug.includes(projSlug) || pfSlug.includes('anthropic') && projSlug.includes('anthropic')) {
-          // Check keyword overlap with question
-          const qWords = question.toLowerCase().split(/\s+/).filter(w => w.length > 3);
-          const pfWords = pf.toLowerCase().replace(/[-_.]/g, ' ');
-          const overlap = qWords.filter(w => pfWords.includes(w));
-          if (overlap.length >= 1 || /design|plan/.test(question.toLowerCase())) {
-            decLinks.push({
-              label: pf.replace('.md', ''),
-              url: '/api/file?path=plans/' + pf,
-              type: 'plan',
-            });
+    // Find related plan/design/architecture docs
+    const DOC_DIRS = [
+      { dir: PLANS_DIR, urlPrefix: 'plans/', type: 'plan' },
+      { dir: path.join(HANDLER_BASE, 'architecture'), urlPrefix: 'architecture/', type: 'plan' },
+    ];
+    for (const { dir, urlPrefix, type } of DOC_DIRS) {
+      try {
+        const docFiles = fs.readdirSync(dir).filter(f => f.endsWith('.md'));
+        const projSlug = project.toLowerCase().replace(/[^a-z0-9]/g, '');
+        for (const df of docFiles) {
+          const dfSlug = df.toLowerCase().replace(/[^a-z0-9]/g, '');
+          if (dfSlug.includes(projSlug) || dfSlug.includes('anthropic') && projSlug.includes('anthropic')) {
+            const qWords = question.toLowerCase().split(/\s+/).filter(w => w.length > 3);
+            const dfWords = df.toLowerCase().replace(/[-_.]/g, ' ');
+            const overlap = qWords.filter(w => dfWords.includes(w));
+            if (overlap.length >= 1 || /design|plan|architecture|review/i.test(question)) {
+              decLinks.push({
+                label: df.replace('.md', ''),
+                url: '/api/file?path=' + urlPrefix + df,
+                type,
+              });
+            }
+          }
+          // Also match if the question directly references the filename
+          if (question.includes(df) || question.includes(df.replace('.md', ''))) {
+            if (!decLinks.some(l => l.url.includes(df))) {
+              decLinks.push({
+                label: df.replace('.md', ''),
+                url: '/api/file?path=' + urlPrefix + df,
+                type,
+              });
+            }
           }
         }
-      }
-    } catch (e) { /* plans dir missing */ }
+      } catch (e) { /* dir missing */ }
+    }
 
     if (decLinks.length > 0) {
       links[id] = decLinks;
@@ -223,6 +238,21 @@ function parseDispatchFile(content, filename) {
   result.budgetCap = result.metadata.budget_cap || '';
   result.type = result.metadata.type || '';
   result.repo = result.metadata.repo || '';
+
+  // v2 lifecycle fields — promote to top-level
+  result.status = (result.metadata.status || 'queued').toLowerCase();
+  result.needsApproval = /yes/i.test(result.metadata.needs_approval || '');
+  result.worker = result.metadata.worker || '';
+  result.startedAt = result.metadata.started || '';
+  result.completedAt = result.metadata.completed || '';
+  result.commit = result.metadata.commit || '';
+  result.pr = result.metadata.pr || '';
+  result.resultSummary = result.metadata.result || '';
+  result.blocker = result.metadata.blocker || '';
+
+  // Parse ## Progress section
+  const progressMatch = content.match(/## Progress\s*\n([\s\S]*?)(?=\n## |$)/);
+  result.progress = progressMatch ? progressMatch[1].trim() : '';
 
   // Scope Boundaries (risks / out-of-scope)
   const scopeMatch = content.match(/### Scope Boundaries\s*\n([\s\S]*?)(?=\n### |\n## |$)/);
@@ -436,11 +466,9 @@ function broadcast(event, data) {
 }
 
 function startWatchers() {
-  // Watch dispatch/result/blocker directories
+  // Watch dispatch directory (v2: single source of truth)
   const watchDirs = [
     { dir: DISPATCHES_DIR, event: 'dispatches:changed' },
-    { dir: RESULTS_DIR, event: 'results:changed' },
-    { dir: BLOCKERS_DIR, event: 'blockers:changed' },
   ];
 
   for (const { dir, event } of watchDirs) {
@@ -584,12 +612,8 @@ const server = http.createServer(async (req, res) => {
   // -------------------------------------------------------------------------
   if (url.pathname === '/api/dispatches' && req.method === 'GET') {
     try {
-      const [dispatches, results, blockers] = await Promise.all([
-        readAndParseDir(DISPATCHES_DIR, parseDispatchFile),
-        readAndParseDir(RESULTS_DIR, parseResultFile),
-        readAndParseDir(BLOCKERS_DIR, parseBlockerFile),
-      ]);
-      sendJSON(res, { dispatches, results, blockers });
+      const dispatches = await readAndParseDir(DISPATCHES_DIR, parseDispatchFile);
+      sendJSON(res, { dispatches });
     } catch (e) {
       sendError(res, e.message);
     }

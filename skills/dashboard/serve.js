@@ -741,29 +741,52 @@ const server = http.createServer(async (req, res) => {
       const timestamp = new Date().toISOString().split('T')[0];
       let line = '';
 
-      if (action === 'approve') {
-        line = `\n| ${dispatchId} | APPROVED | ${timestamp} |`;
-        // Update the dispatch file: Needs Approval → no, Status → queued, clear Blocker
+      if (action === 'approve' || action === 'reject') {
+        const isPendingDecision = /^PD\d+$/.test(dispatchId);
         const dispatchPath = path.join(DISPATCHES_DIR, dispatchId + '.md');
-        if (fs.existsSync(dispatchPath)) {
+        const hasDispatchFile = fs.existsSync(dispatchPath);
+
+        if (isPendingDecision) {
+          // Pending decisions: mark resolved in the Pending Decisions table
+          let stateContent = fs.readFileSync(STATE_FILE, 'utf8');
+          const actionLabel = action === 'approve' ? 'APPROVED' : 'REJECTED';
+          // Match the PD row and prefix the Options column with "Resolved:"
+          const pdRowRegex = new RegExp(
+            '(\\|\\s*' + dispatchId + '\\s*\\|[^|]*\\|[^|]*\\|)\\s*([^|]*)(\\|)',
+          );
+          const match = stateContent.match(pdRowRegex);
+          if (match) {
+            const currentOptions = match[2].trim();
+            const newOptions = `Resolved: ${actionLabel} (${timestamp}) — ${currentOptions}`;
+            stateContent = stateContent.replace(pdRowRegex, `$1 ${newOptions} $3`);
+            fs.writeFileSync(STATE_FILE, stateContent, 'utf8');
+          }
+          sendJSON(res, { ok: true, action, dispatchId });
+        } else if (hasDispatchFile) {
+          // Dispatch files: update the file metadata directly
           let content = fs.readFileSync(dispatchPath, 'utf8');
-          content = content.replace(/(\*\*Needs Approval\*\*\s*\|\s*)yes[^|]*(\|)/, '$1no $2');
-          content = content.replace(/(\*\*Status\*\*\s*\|\s*)blocked[^|]*(\|)/, '$1queued $2');
-          content = content.replace(/(\*\*Blocker\*\*\s*\|\s*)[^|]*(\|)/, '$1— $2');
+          if (action === 'approve') {
+            content = content.replace(/(\*\*Needs Approval\*\*\s*\|\s*)yes[^|]*(\|)/, '$1no $2');
+            content = content.replace(/(\*\*Status\*\*\s*\|\s*)blocked[^|]*(\|)/, '$1queued $2');
+            content = content.replace(/(\*\*Blocker\*\*\s*\|\s*)[^|]*(\|)/, '$1— $2');
+          } else {
+            content = content.replace(/(\*\*Status\*\*\s*\|\s*)\w+(\s*\|)/, '$1rejected$2');
+          }
           fs.writeFileSync(dispatchPath, content, 'utf8');
-        }
-      } else if (action === 'reject') {
-        line = `\n| ${dispatchId} | REJECTED | ${timestamp} |`;
-        // Update the dispatch file: Status → rejected
-        const dispatchPath = path.join(DISPATCHES_DIR, dispatchId + '.md');
-        if (fs.existsSync(dispatchPath)) {
-          let content = fs.readFileSync(dispatchPath, 'utf8');
-          content = content.replace(/(\*\*Status\*\*\s*\|\s*)\w+(\s*\|)/, '$1rejected$2');
-          fs.writeFileSync(dispatchPath, content, 'utf8');
+          sendJSON(res, { ok: true, action, dispatchId });
+        } else {
+          sendError(res, `No dispatch file or pending decision found for ${dispatchId}`, 404);
         }
       } else if (action === 'rework') {
         const feedback = (body.feedback || 'No feedback provided').replace(/[|]/g, '-');
-        line = `\n| ${dispatchId} | REWORK | ${timestamp} | ${feedback} |`;
+        const line = `\n| ${dispatchId} | REWORK | ${timestamp} | ${feedback} |`;
+        fs.appendFile(STATE_FILE, line, 'utf8', (err) => {
+          if (err) {
+            sendError(res, 'Failed to update handler-state.md');
+            return;
+          }
+          sendJSON(res, { ok: true, action, dispatchId });
+        });
       } else if (action === 'stop') {
         const workerName = body.workerName;
         if (!workerName || !/^worker-\d+$/.test(workerName)) {
@@ -776,17 +799,9 @@ const server = http.createServer(async (req, res) => {
           // Session might already be dead
         }
         sendJSON(res, { ok: true, action: 'stop', dispatchId, workerName });
-        return;
-      }
-
-      // Append to handler-state.md
-      fs.appendFile(STATE_FILE, line, 'utf8', (err) => {
-        if (err) {
-          sendError(res, 'Failed to update handler-state.md');
-          return;
-        }
+      } else {
         sendJSON(res, { ok: true, action, dispatchId });
-      });
+      }
     } catch (e) {
       sendError(res, e.message, 400);
     }

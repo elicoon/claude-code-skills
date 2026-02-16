@@ -3,7 +3,7 @@
  * PostToolUse hook for Edit tool — protects frozen contract sections in dispatch files.
  *
  * Workers can only edit:
- *   - Lifecycle metadata fields (Status, Worker, Started, Completed, Commit, PR, Result, Blocker, Needs Approval)
+ *   - Lifecycle metadata fields (Status, Worker, Started, Completed, Commit, PR, Result, Blocker)
  *   - The ## Progress section (everything from ## Progress to end of file)
  *
  * All other sections are frozen (the "contract" the handler wrote).
@@ -37,8 +37,8 @@ const MUTABLE_META_FIELDS = [
   "PR",
   "Result",
   "Blocker",
-  "Needs Approval",
 ];
+// Note: "Needs Approval" is intentionally NOT mutable by workers — only handler/heartbeat can change it
 
 /**
  * Parse the file into a list of section ranges.
@@ -189,6 +189,7 @@ async function main() {
 
   // Check if old_string overlaps with the WORKER CONTRACT HTML comment
   if (overlapsWorkerContract(content, oldString)) {
+    process.stderr.write("validate-dispatch-edit: Blocked worker edit to WORKER CONTRACT comment\n");
     console.log(
       JSON.stringify({
         decision: "block",
@@ -236,6 +237,7 @@ async function main() {
     // Determine a human-friendly section name for the error message
     const sectionName = section.header.replace(/^#+\s*/, "");
 
+    process.stderr.write(`validate-dispatch-edit: Blocked worker edit to "${sectionName}" section\n`);
     console.log(
       JSON.stringify({
         decision: "block",

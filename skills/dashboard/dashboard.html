@@ -1655,6 +1655,30 @@
     border-color: rgba(88,166,255,0.25);
   }
 
+  .queue-rank {
+    position: absolute;
+    top: 0.3rem;
+    right: 0.4rem;
+    font-size: 0.6rem;
+    font-weight: 700;
+    color: var(--text-dim);
+    opacity: 0.7;
+  }
+
+  .dispatch-card[draggable="true"] {
+    cursor: grab;
+  }
+  .dispatch-card[draggable="true"]:active {
+    cursor: grabbing;
+  }
+  .drop-indicator {
+    height: 2px;
+    background: rgba(88, 166, 255, 0.8);
+    border-radius: 1px;
+    margin: 2px 0;
+    transition: opacity 0.15s;
+  }
+
   .card-top {
     display: flex;
     align-items: center;
@@ -4233,6 +4257,15 @@ function renderPipeline(dispatches, state) {
     }
   });
 
+  // Sort queued items by queuePosition (ascending)
+  if (categorized.queued) {
+    categorized.queued.sort(function(a, b) {
+      var pa = a.queuePosition != null ? a.queuePosition : 9999;
+      var pb = b.queuePosition != null ? b.queuePosition : 9999;
+      return pa - pb;
+    });
+  }
+
   // Render kanban columns
   document.querySelectorAll('.dispatch-column').forEach(function(col) {
     const status = col.dataset.status;
@@ -4247,10 +4280,16 @@ function renderPipeline(dispatches, state) {
       const isCompleted = status === 'completed';
       const isBlocked = status === 'blocked';
 
-      html += '<div class="dispatch-card" data-project="' + escapeHtml(proj) + '" data-priority="' + escapeHtml(pri) + '"';
+      html += '<div class="dispatch-card" data-dispatch-id="' + escapeHtml(d.id) + '" data-project="' + escapeHtml(proj) + '" data-priority="' + escapeHtml(pri) + '"';
+      if (status === 'queued') html += ' draggable="true"';
       if (isCompleted) html += ' style="opacity:0.75;"';
       if (isBlocked) html += ' style="border-color:rgba(248,81,73,0.2);"';
       html += ' onclick="this.classList.toggle(\'expanded\')">';
+
+      // Add rank badge for queued items
+      if (status === 'queued' && d.queuePosition != null) {
+        html += '<span class="queue-rank">#' + (d.queuePosition + 1) + '</span>';
+      }
 
       html += '<div class="card-top">';
       html += '<span class="card-project">' + escapeHtml(proj) + '</span>';
@@ -4362,6 +4401,121 @@ function renderPipeline(dispatches, state) {
   // Apply any active filters
   applyPipelineFilters();
 }
+
+// --- Drag-to-reorder for queued column ---
+(function() {
+  var dragSrcId = null;
+  var dropIndicator = null;
+
+  function getQueuedColumn() {
+    return document.querySelector('.dispatch-column[data-status="queued"] .column-cards');
+  }
+
+  function createDropIndicator() {
+    var el = document.createElement('div');
+    el.className = 'drop-indicator';
+    return el;
+  }
+
+  function removeDropIndicator() {
+    if (dropIndicator && dropIndicator.parentNode) {
+      dropIndicator.parentNode.removeChild(dropIndicator);
+    }
+  }
+
+  function getInsertTarget(container, y) {
+    var cards = Array.from(container.querySelectorAll('.dispatch-card[draggable="true"]'));
+    for (var i = 0; i < cards.length; i++) {
+      var rect = cards[i].getBoundingClientRect();
+      if (y < rect.top + rect.height / 2) {
+        return cards[i];
+      }
+    }
+    return null;
+  }
+
+  function saveNewOrder(container) {
+    var cards = container.querySelectorAll('.dispatch-card[draggable="true"]');
+    var order = Array.from(cards).map(function(c) { return c.dataset.dispatchId; });
+    fetch('/api/dispatches/reorder', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ order: order }),
+    }).then(function(r) { return r.json(); }).then(function(data) {
+      if (data.ok) {
+        cards.forEach(function(c, i) {
+          var badge = c.querySelector('.queue-rank');
+          if (badge) badge.textContent = '#' + (i + 1);
+        });
+      }
+    });
+  }
+
+  document.addEventListener('dragstart', function(e) {
+    var card = e.target.closest('.dispatch-card[draggable="true"]');
+    if (!card) return;
+    var col = card.closest('.dispatch-column[data-status="queued"]');
+    if (!col) return;
+    dragSrcId = card.dataset.dispatchId;
+    card.style.opacity = '0.4';
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', dragSrcId);
+    dropIndicator = createDropIndicator();
+  });
+
+  document.addEventListener('dragover', function(e) {
+    if (!dragSrcId) return;
+    var colEl = e.target.closest('.dispatch-column[data-status="queued"]');
+    if (!colEl) return;
+    var container = colEl.querySelector('.column-cards');
+    if (!container) return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+
+    removeDropIndicator();
+    var target = getInsertTarget(container, e.clientY);
+    if (target) {
+      container.insertBefore(dropIndicator, target);
+    } else {
+      container.appendChild(dropIndicator);
+    }
+  });
+
+  document.addEventListener('drop', function(e) {
+    if (!dragSrcId) return;
+    e.preventDefault();
+    removeDropIndicator();
+
+    var container = getQueuedColumn();
+    if (!container) return;
+
+    var draggedCard = container.querySelector('.dispatch-card[data-dispatch-id="' + CSS.escape(dragSrcId) + '"]');
+    if (!draggedCard) return;
+
+    var target = getInsertTarget(container, e.clientY);
+    if (target && target !== draggedCard) {
+      container.insertBefore(draggedCard, target);
+    } else if (!target) {
+      container.appendChild(draggedCard);
+    }
+
+    draggedCard.style.opacity = '';
+    saveNewOrder(container);
+    dragSrcId = null;
+  });
+
+  document.addEventListener('dragend', function(e) {
+    if (!dragSrcId) return;
+    removeDropIndicator();
+    var container = getQueuedColumn();
+    if (container) {
+      container.querySelectorAll('.dispatch-card').forEach(function(c) {
+        c.style.opacity = '';
+      });
+    }
+    dragSrcId = null;
+  });
+})();
 
 function populatePipelineProjectFilter(dispatches) {
   const select = document.getElementById('pipeline-filter-project');

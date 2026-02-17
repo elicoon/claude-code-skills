@@ -11,7 +11,8 @@ const path = require('path');
 const { execSync } = require('child_process');
 
 const PORT = parseInt(process.argv[2], 10) || 3000;
-const ROOT = __dirname;
+const ROOT = path.join(require('os').homedir(), 'dev-org');
+const STATIC_ROOT = __dirname; // dashboard.html lives here
 
 // Handler data directories
 const HANDLER_BASE = '/home/eli/dev-org/docs';
@@ -657,10 +658,11 @@ const server = http.createServer(async (req, res) => {
   let filePath = path.join(ROOT, decoded);
 
   // Default to dashboard.html for root
-  if (url.pathname === '/') filePath = path.join(ROOT, 'dashboard.html');
+  if (url.pathname === '/') filePath = path.join(STATIC_ROOT, 'dashboard.html');
 
   // Prevent directory traversal
-  if (!filePath.startsWith(ROOT)) {
+  if (!filePath.startsWith(ROOT + '/') && !filePath.startsWith(STATIC_ROOT + '/') &&
+      filePath !== ROOT && filePath !== STATIC_ROOT) {
     res.writeHead(403);
     res.end('Forbidden');
     return;

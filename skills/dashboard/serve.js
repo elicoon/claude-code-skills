@@ -1,5 +1,5 @@
 // Minimal static file server for the backlog dashboard.
-// Serves files from the repo root so dashboard.html can fetch backlog/tasks/*.md.
+// Serves backlog/tasks data from ~/dev-org and dashboard.html from __dirname.
 // Also provides handler pipeline APIs for dispatches, results, blockers, workers, and SSE.
 //
 // Usage:  node serve.js [port]
@@ -15,7 +15,7 @@ const ROOT = path.join(require('os').homedir(), 'dev-org');
 const STATIC_ROOT = __dirname; // dashboard.html lives here
 
 // Handler data directories
-const HANDLER_BASE = '/home/eli/dev-org/docs';
+const HANDLER_BASE = path.join(ROOT, 'docs');
 const DISPATCHES_DIR = path.join(HANDLER_BASE, 'handler-dispatches');
 const QUEUE_ORDER_FILE = path.join(DISPATCHES_DIR, 'queue-order.json');
 const RESULTS_DIR = path.join(HANDLER_BASE, 'handler-results-archive');  // archived results (new results live in dispatch files)
@@ -658,7 +658,9 @@ const server = http.createServer(async (req, res) => {
   let filePath = path.join(ROOT, decoded);
 
   // Default to dashboard.html for root
-  if (url.pathname === '/') filePath = path.join(STATIC_ROOT, 'dashboard.html');
+  if (url.pathname === '/' || url.pathname === '/dashboard.html') {
+    filePath = path.join(STATIC_ROOT, 'dashboard.html');
+  }
 
   // Prevent directory traversal
   if (!filePath.startsWith(ROOT + '/') && !filePath.startsWith(STATIC_ROOT + '/') &&

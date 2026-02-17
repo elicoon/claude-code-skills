@@ -19,6 +19,7 @@ for skill_dir in "$SKILLS_SRC"/*/; do
   skill_name=$(basename "$skill_dir")
   dest_dir="$SKILLS_CACHE/$skill_name"
   mkdir -p "$dest_dir"
+  # Flat structure only — subdirectories are not synced. Deleted source files are not removed from cache.
   for src_file in "$skill_dir"*; do
     [ -f "$src_file" ] || continue
     fname=$(basename "$src_file")

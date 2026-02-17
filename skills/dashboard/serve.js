@@ -16,6 +16,7 @@ const ROOT = __dirname;
 // Handler data directories
 const HANDLER_BASE = '/home/eli/dev-org/docs';
 const DISPATCHES_DIR = path.join(HANDLER_BASE, 'handler-dispatches');
+const QUEUE_ORDER_FILE = path.join(DISPATCHES_DIR, 'queue-order.json');
 const RESULTS_DIR = path.join(HANDLER_BASE, 'handler-results-archive');  // archived results (new results live in dispatch files)
 const BLOCKERS_DIR = path.join(HANDLER_BASE, 'handler-blockers-archive'); // archived blockers (new blockers live in dispatch files)
 const STATE_FILE = path.join(HANDLER_BASE, 'handler-state.md');
@@ -306,6 +307,59 @@ function parseDispatchFile(content, filename) {
   result.decisionNeeded = result.metadata.decision_needed || '';
 
   return result;
+}
+
+function loadQueueOrder() {
+  try {
+    if (fs.existsSync(QUEUE_ORDER_FILE)) {
+      return JSON.parse(fs.readFileSync(QUEUE_ORDER_FILE, 'utf8'));
+    }
+  } catch (_) {}
+  return null;
+}
+
+function saveQueueOrder(order) {
+  fs.writeFileSync(QUEUE_ORDER_FILE, JSON.stringify(order, null, 2) + '\n');
+}
+
+function reconcileQueueOrder(dispatches) {
+  const queuedIds = new Set(
+    dispatches
+      .filter(d => d.status === 'queued')
+      .map(d => d.id)
+  );
+
+  let order = loadQueueOrder();
+
+  if (!order) {
+    // First time: sort by priority (numeric, ascending) then by date (filename)
+    order = dispatches
+      .filter(d => d.status === 'queued')
+      .sort((a, b) => {
+        const pa = parseInt((a.metadata?.priority || '99').match(/\d+/)?.[0]) || 99;
+        const pb = parseInt((b.metadata?.priority || '99').match(/\d+/)?.[0]) || 99;
+        if (pa !== pb) return pa - pb;
+        return a.id.localeCompare(b.id);
+      })
+      .map(d => d.id);
+    saveQueueOrder(order);
+    return order;
+  }
+
+  // Remove entries no longer queued
+  const filtered = order.filter(id => queuedIds.has(id));
+
+  // Append new queued items not in the list
+  const inOrder = new Set(filtered);
+  const newItems = [...queuedIds].filter(id => !inOrder.has(id));
+  const reconciled = [...filtered, ...newItems];
+
+  // Save back if changed
+  if (reconciled.length !== order.length || reconciled.some((id, i) => id !== order[i])) {
+    saveQueueOrder(reconciled);
+  }
+
+  return reconciled;
 }
 
 function parseResultFile(content, filename) {
@@ -645,6 +699,11 @@ const server = http.createServer(async (req, res) => {
   if (url.pathname === '/api/dispatches' && req.method === 'GET') {
     try {
       const dispatches = await readAndParseDir(DISPATCHES_DIR, parseDispatchFile);
+      const queueOrder = reconcileQueueOrder(dispatches);
+      const orderMap = new Map(queueOrder.map((id, i) => [id, i]));
+      dispatches.forEach(d => {
+        d.queuePosition = orderMap.has(d.id) ? orderMap.get(d.id) : null;
+      });
       sendJSON(res, { dispatches });
     } catch (e) {
       sendError(res, e.message);
@@ -725,6 +784,26 @@ const server = http.createServer(async (req, res) => {
       sseClients.delete(res);
       if (sseClients.size === 0) stopWorkerPolling();
     });
+    return;
+  }
+
+  // -------------------------------------------------------------------------
+  // API: reorder dispatch queue
+  // -------------------------------------------------------------------------
+  if (url.pathname === '/api/dispatches/reorder' && req.method === 'POST') {
+    try {
+      const body = await parseBody(req);
+      const { order } = body;
+      if (!Array.isArray(order)) {
+        sendJSON(res, { ok: false, error: 'order must be an array' }, 400);
+        return;
+      }
+      saveQueueOrder(order);
+      broadcast('dispatches:changed', { timestamp: new Date().toISOString() });
+      sendJSON(res, { ok: true, order });
+    } catch (e) {
+      sendError(res, e.message);
+    }
     return;
   }
 

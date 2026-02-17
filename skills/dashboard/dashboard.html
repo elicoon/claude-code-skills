@@ -4248,8 +4248,11 @@ function renderPipeline(dispatches, state) {
 
   // --- Categorize dispatches into kanban columns (v2: direct Status read) ---
   const categorized = { queued: [], active: [], blocked: [], completed: [] };
+  // Status aliases: dispatch files use 'done'/'complete'/'rejected' — map these to completed
+  const STATUS_MAP = { done: 'completed', complete: 'completed', rejected: 'completed' };
   dispatches.forEach(function(d) {
-    const status = d.status || 'queued';
+    const raw = d.status || 'queued';
+    const status = STATUS_MAP[raw] || raw;
     if (categorized[status]) {
       categorized[status].push(d);
     } else {

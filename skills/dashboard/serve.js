@@ -655,11 +655,13 @@ const server = http.createServer(async (req, res) => {
     res.end('Bad request');
     return;
   }
-  let filePath = path.join(ROOT, decoded);
+  let filePath;
 
-  // Default to dashboard.html for root
+  // Serve dashboard.html from skills dir for root and explicit path
   if (url.pathname === '/' || url.pathname === '/dashboard.html') {
     filePath = path.join(STATIC_ROOT, 'dashboard.html');
+  } else {
+    filePath = path.join(ROOT, decoded);
   }
 
   // Prevent directory traversal

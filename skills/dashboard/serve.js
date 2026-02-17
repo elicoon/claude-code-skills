@@ -794,8 +794,8 @@ const server = http.createServer(async (req, res) => {
     try {
       const body = await parseBody(req);
       const { order } = body;
-      if (!Array.isArray(order)) {
-        sendJSON(res, { ok: false, error: 'order must be an array' }, 400);
+      if (!Array.isArray(order) || !order.every(id => typeof id === 'string')) {
+        sendJSON(res, { ok: false, error: 'order must be an array of strings' }, 400);
         return;
       }
       saveQueueOrder(order);

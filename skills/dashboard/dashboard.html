@@ -4448,6 +4448,8 @@ function renderPipeline(dispatches, state) {
           if (badge) badge.textContent = '#' + (i + 1);
         });
       }
+    }).catch(function() {
+      if (typeof loadDashboardData === 'function') loadDashboardData();
     });
   }
 

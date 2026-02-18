@@ -146,7 +146,8 @@ function handlePostEdit(hookData, marker) {
       return marker;
     }
 
-    if (oldString && isEditInProgressSection(content, oldString)) {
+    const newString = hookData?.tool_input?.new_string || '';
+    if (newString && isEditInProgressSection(content, newString)) {
       // This IS the checkpoint write — clear the marker
       marker.needed = false;
       marker.bash_count = 0;

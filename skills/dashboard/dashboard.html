@@ -1224,6 +1224,9 @@
   .budget-detail .under { color: var(--status-queued); }
   .budget-detail .over { color: var(--status-blocked); }
 
+  #usage-strip { flex-direction: column; gap: 0.5rem; }
+  .usage-row { display: flex; align-items: center; gap: 1rem; width: 100%; }
+
   /* ══════════════════════════════════
      DECISIONS PANEL
   ══════════════════════════════════ */
@@ -2133,14 +2136,25 @@
 <!-- ═══ PIPELINE VIEW ═══ -->
 <div class="view" id="view-pipeline">
   <!-- Budget bar -->
-  <div class="budget-strip">
-    <span class="budget-label">Weekly budget</span>
-    <div class="budget-bar-track">
-      <div class="budget-bar-target"><span class="budget-bar-target-label"></span></div>
-      <div class="budget-bar-fill"></div>
+  <div class="budget-strip" id="usage-strip">
+    <div class="usage-row" id="usage-7d">
+      <span class="budget-label">7d</span>
+      <div class="budget-bar-track">
+        <div class="budget-bar-target"><span class="budget-bar-target-label"></span></div>
+        <div class="budget-bar-fill"></div>
+      </div>
+      <span class="budget-pct">--</span>
+      <span class="budget-detail"></span>
     </div>
-    <span class="budget-pct"></span>
-    <span class="budget-detail"></span>
+    <div class="usage-row" id="usage-5h">
+      <span class="budget-label">5h</span>
+      <div class="budget-bar-track">
+        <div class="budget-bar-target"><span class="budget-bar-target-label"></span></div>
+        <div class="budget-bar-fill"></div>
+      </div>
+      <span class="budget-pct">--</span>
+      <span class="budget-detail"></span>
+    </div>
   </div>
 
   <!-- Decisions panel -->
@@ -3924,32 +3938,69 @@ function formatTimeAgo(dateStr) {
 
 function renderPipeline(dispatches, state) {
   // --- Budget bar ---
-  const budgetPct = document.querySelector('#view-pipeline .budget-pct');
-  const budgetFill = document.querySelector('#view-pipeline .budget-bar-fill');
-  const budgetDetail = document.querySelector('#view-pipeline .budget-detail');
-  const budgetTarget = document.querySelector('#view-pipeline .budget-bar-target');
-  const budgetTargetLabel = document.querySelector('#view-pipeline .budget-bar-target-label');
+  function renderUsageRow(rowId, windowData, label) {
+    const row = document.getElementById(rowId);
+    if (!row) return;
+    const fill = row.querySelector('.budget-bar-fill');
+    const target = row.querySelector('.budget-bar-target');
+    const targetLabel = row.querySelector('.budget-bar-target-label');
+    const pctEl = row.querySelector('.budget-pct');
+    const detail = row.querySelector('.budget-detail');
 
-  if (state && state.budget) {
+    if (!windowData) {
+      pctEl.textContent = '--';
+      fill.style.width = '0%';
+      detail.textContent = 'no data';
+      return;
+    }
+
+    const { actual, expected, ahead } = windowData;
+    fill.style.width = Math.min(actual, 100) + '%';
+    fill.style.background = ahead
+      ? 'linear-gradient(90deg, #c0392b, #e74c3c)'
+      : 'linear-gradient(90deg, var(--status-progress), var(--status-done))';
+    target.style.width = Math.min(expected, 100) + '%';
+    targetLabel.textContent = 'pace ' + expected + '%';
+    pctEl.textContent = actual + '%';
+    pctEl.style.color = ahead ? 'var(--status-blocked)' : 'var(--text-primary)';
+    const paceText = ahead
+      ? '<span class="over">ahead of pace</span>'
+      : '<span class="under">behind pace</span>';
+    detail.innerHTML = paceText;
+  }
+
+  // Fetch live usage and render
+  fetch('/api/usage').then(r => r.ok ? r.json() : null).then(function(usage) {
+    if (usage && !usage.error) {
+      renderUsageRow('usage-7d', usage.seven_day, '7d');
+      renderUsageRow('usage-5h', usage.five_hour, '5h');
+      // Show stale warning if cache is old
+      if (usage.stale) {
+        const strip = document.getElementById('usage-strip');
+        if (strip && !strip.querySelector('.stale-warn')) {
+          const warn = document.createElement('span');
+          warn.className = 'budget-detail stale-warn';
+          warn.style.color = 'var(--status-blocked)';
+          warn.textContent = 'cache ' + usage.stale_minutes + 'm old';
+          strip.appendChild(warn);
+        }
+      }
+    } else {
+      ['usage-7d', 'usage-5h'].forEach(function(id) {
+        const row = document.getElementById(id);
+        if (row) {
+          row.querySelector('.budget-pct').textContent = '--';
+          row.querySelector('.budget-detail').textContent = 'no cache';
+        }
+      });
+    }
+  }).catch(function() {});
+
+  // Legacy single-bar budget (no longer used, kept for safety)
+  if (false && state && state.budget) {
     const b = state.budget;
     const pct = b.percentUsed || 0;
-    budgetPct.textContent = pct + '%';
-    budgetFill.style.width = Math.min(pct, 100) + '%';
-    const detail = [];
-    if (b.daysRemaining != null) detail.push(b.daysRemaining + ' days remaining');
-    if (b.pace) {
-      const cls = b.pace === 'over-paced' ? 'over' : 'under';
-      detail.push('<span class="' + cls + '">' + escapeHtml(b.pace) + '</span>');
-    }
-    budgetDetail.innerHTML = detail.join(' &middot; ');
-    if (b.targetPercent != null) {
-      budgetTarget.style.width = b.targetPercent + '%';
-      budgetTargetLabel.textContent = 'target ' + b.targetPercent + '%';
-    }
-  } else {
-    budgetPct.textContent = '--';
-    budgetFill.style.width = '0%';
-    budgetDetail.textContent = 'No budget data';
+    if (b.targetPercent != null) {}
   }
 
   // --- Decisions panel ---

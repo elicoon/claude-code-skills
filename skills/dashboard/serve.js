@@ -754,6 +754,41 @@ const server = http.createServer(async (req, res) => {
   // -------------------------------------------------------------------------
   // API: worker status (Task 2)
   // -------------------------------------------------------------------------
+  // -------------------------------------------------------------------------
+  // API: live Claude usage from cache (pace gate data)
+  // -------------------------------------------------------------------------
+  if (url.pathname === '/api/usage' && req.method === 'GET') {
+    const cachePath = path.join(require('os').homedir(), '.claude', 'usage-cache.json');
+    fs.readFile(cachePath, 'utf8', (err, content) => {
+      if (err) { sendJSON(res, { error: 'no_cache' }); return; }
+      let cache;
+      try { cache = JSON.parse(content); } catch (e) { sendJSON(res, { error: 'parse_error' }); return; }
+
+      const now = Date.now();
+      const compute = (actual, resetsAt, durationMs) => {
+        if (actual == null || !resetsAt) return null;
+        const resetTs = new Date(resetsAt).getTime();
+        const startTs = resetTs - durationMs;
+        const elapsed = now - startTs;
+        const expected = Math.round((elapsed / durationMs) * 100);
+        return { actual, expected, ahead: actual > expected, resets_at: resetsAt };
+      };
+
+      const updatedAt = cache.updated_at ? new Date(cache.updated_at).getTime() : 0;
+      const staleMs = now - updatedAt;
+
+      sendJSON(res, {
+        five_hour: compute(cache.five_hour, cache.five_hour_resets_at, 5 * 60 * 60 * 1000),
+        seven_day: compute(cache.seven_day, cache.seven_day_resets_at, 7 * 24 * 60 * 60 * 1000),
+        extra_credits: cache.extra_credits,
+        updated_at: cache.updated_at,
+        stale: staleMs > 15 * 60 * 1000,
+        stale_minutes: Math.round(staleMs / 60000),
+      });
+    });
+    return;
+  }
+
   if (url.pathname === '/api/workers' && req.method === 'GET') {
     const workers = getWorkerStatus();
     sendJSON(res, { workers });

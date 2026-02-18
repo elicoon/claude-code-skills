@@ -269,7 +269,7 @@ Scan dispatch files in `{DEV_ORG_PATH}/docs/handler-dispatches/` for Status fiel
 Append a scan summary to `{DEV_ORG_PATH}/docs/handler-state.md` under a new `## Scan Log` section (create if missing). Include: date/time, repos scanned, key findings (starving projects, stale repos, new PRs, worker results).
 
 **Action Logging (REQUIRED):**
-Before completing this phase, append any direct actions you took to `/home/eli/dev-org/docs/handler-action-log.md`:
+Before completing this phase, append any direct actions you took to `{DEV_ORG_PATH}/docs/handler-action-log.md`:
 
 | [today's date] | [phase number] | [what you did] | [which workforce role could do this instead] | [any notes] |
 
@@ -414,7 +414,7 @@ For each item, determine:
 Append analysis results to `{DEV_ORG_PATH}/docs/handler-state.md`: starving projects, blockers found, dispatch queue built, budget pacing assessment.
 
 **Action Logging (REQUIRED):**
-Before completing this phase, append any direct actions you took to `/home/eli/dev-org/docs/handler-action-log.md`:
+Before completing this phase, append any direct actions you took to `{DEV_ORG_PATH}/docs/handler-action-log.md`:
 
 | [today's date] | [phase number] | [what you did] | [which workforce role could do this instead] | [any notes] |
 
@@ -644,7 +644,7 @@ If no work could be dispatched (everything blocked or starving and needs user in
 - This is a handler failure state — every check-in should end with work running.
 
 **Action Logging (REQUIRED):**
-Before completing this phase, append any direct actions you took to `/home/eli/dev-org/docs/handler-action-log.md`:
+Before completing this phase, append any direct actions you took to `{DEV_ORG_PATH}/docs/handler-action-log.md`:
 
 | [today's date] | [phase number] | [what you did] | [which workforce role could do this instead] | [any notes] |
 

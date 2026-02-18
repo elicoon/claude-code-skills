@@ -1022,8 +1022,8 @@ const server = http.createServer(async (req, res) => {
     // Security: allowlisted base directories only
     const ALLOWED_BASES = [
       path.resolve(HANDLER_BASE),
-      path.resolve('/home/eli/projects'),
-      path.resolve('/home/eli/dev-org'),
+      path.resolve(path.join(require('os').homedir(), 'projects')),
+      path.resolve(ROOT),
     ];
     if (!ALLOWED_BASES.some(base => absPath.startsWith(base + '/'))) {
       res.writeHead(403);

@@ -82,7 +82,7 @@ All markers live in `/tmp/`:
 ### Quick smoke test (handler chain)
 
 ```bash
-cd /home/eli/projects/claude-code-skills/hooks
+cd ~/projects/claude-code-skills/hooks
 
 # 1. Register handler session
 echo '{"session_id":"test1","tool_input":{"skill":"handler"}}' | node register-handler-session.js
@@ -117,7 +117,7 @@ rm -f /tmp/claude-handler-test1 /tmp/claude-compaction-test1
 ```bash
 # 1. Setup worker env
 mkdir -p /tmp/claude-worker-config/.claude
-echo "/home/eli/projects/dev-org/docs/handler-dispatches/2026-02-13-test-task.md" > /tmp/claude-worker-config/.claude/worker-dispatch-path
+echo "~/projects/dev-org/docs/handler-dispatches/example-task.md" > /tmp/claude-worker-config/.claude/worker-dispatch-path
 
 # 2. PreCompact as worker
 HOME=/tmp/claude-worker-config node compaction-reread.js precompact <<< '{"session_id":"test2"}'

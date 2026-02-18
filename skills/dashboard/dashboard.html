@@ -2078,10 +2078,10 @@
 
 <nav class="tab-bar">
   <div class="tab-bar-left">
-    <button class="tab active" data-view="kanban" onclick="switchView('kanban')">
+    <button class="tab" data-view="kanban" onclick="switchView('kanban')">
       <span class="tab-label"><kbd>B</kbd> Backlog</span>
     </button>
-    <button class="tab" data-view="pipeline" onclick="switchView('pipeline')">
+    <button class="tab active" data-view="pipeline" onclick="switchView('pipeline')">
       <span class="tab-label"><kbd>P</kbd> Pipeline <span class="tab-badge pending" id="pipeline-badge" style="display:none;">0</span></span>
     </button>
     <button class="tab" data-view="workers" onclick="switchView('workers')">
@@ -2103,7 +2103,7 @@
   </div>
 </nav>
 
-<div class="filter-bar" id="filter-bar">
+<div class="filter-bar" id="filter-bar" style="display:none">
   <div class="filter-search">
     <span class="filter-search-icon">&#x2315;</span>
     <input type="text" id="filter-text" placeholder="Search tasks..." aria-label="Search tasks" autocomplete="off">
@@ -2136,7 +2136,7 @@
 
 <div id="error-container" aria-live="polite"></div>
 <main>
-<div class="view active" id="view-kanban">
+<div class="view" id="view-kanban">
   <div class="loading-overlay" id="loading-indicator">
     <div class="loading-spinner"></div>
     <div class="loading-text">Loading backlog data...</div>
@@ -2145,7 +2145,7 @@
 <div class="view" id="view-command"></div>
 
 <!-- ═══ PIPELINE VIEW ═══ -->
-<div class="view" id="view-pipeline">
+<div class="view active" id="view-pipeline">
   <!-- Budget bar -->
   <div class="budget-strip" id="usage-strip">
     <div class="usage-row" id="usage-7d">

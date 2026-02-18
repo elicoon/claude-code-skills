@@ -31,12 +31,9 @@ function getHandlerMarkerPath(sessionId) {
 }
 
 function isHandlerSession(sessionId) {
-  // Check generic marker (written by handler skill itself)
-  try {
-    fs.accessSync(path.join(MARKER_DIR, 'claude-handler-active'));
-    return true;
-  } catch {}
-  // Check session-specific marker (written by PostToolUse hook, if it fired)
+  // Session-specific marker written by register-handler-session.js (PostToolUse hook).
+  // The global claude-handler-active file is no longer checked — it was never cleaned up
+  // and caused regular sessions to be misidentified as handler sessions.
   try {
     fs.accessSync(getHandlerMarkerPath(sessionId));
     return true;

@@ -8,7 +8,7 @@
  *   node compaction-reread.js stop         — failsafe: catches marker if pretooluse never fired (no tools used)
  *
  * Session types:
- *   - handler: /tmp/claude-handler-active exists (written by handler skill) OR /tmp/claude-handler-{session_id} exists
+ *   - handler: /tmp/claude-handler-{session_id} exists (written by register-handler-session.js PostToolUse hook)
  *   - worker:  HOME === /tmp/claude-worker-config (worker env)
  *   - regular: neither — exits silently
  *

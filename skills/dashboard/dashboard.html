@@ -1223,6 +1223,7 @@
 
   .budget-detail .under { color: var(--status-queued); }
   .budget-detail .over { color: var(--status-blocked); }
+  .budget-detail .reset-time { color: var(--text-dim); font-size: 0.68rem; }
 
   #usage-strip { flex-direction: column; gap: 0.5rem; }
   .usage-row { display: flex; align-items: center; gap: 1rem; width: 100%; }
@@ -3954,7 +3955,7 @@ function renderPipeline(dispatches, state) {
       return;
     }
 
-    const { actual, expected, ahead } = windowData;
+    const { actual, expected, ahead, resets_at } = windowData;
     fill.style.width = Math.min(actual, 100) + '%';
     fill.style.background = ahead
       ? 'linear-gradient(90deg, #c0392b, #e74c3c)'
@@ -3963,9 +3964,34 @@ function renderPipeline(dispatches, state) {
     targetLabel.textContent = 'pace ' + expected + '%';
     pctEl.textContent = actual + '%';
     pctEl.style.color = ahead ? 'var(--status-blocked)' : 'var(--text-primary)';
-    const paceText = ahead
+
+    var resetStr = '';
+    if (resets_at) {
+      var resetDate = new Date(resets_at);
+      var now = new Date();
+      var diffMs = resetDate - now;
+      if (diffMs > 0) {
+        var diffH = Math.floor(diffMs / 3600000);
+        var diffM = Math.floor((diffMs % 3600000) / 60000);
+        var timeStr = resetDate.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+        var tomorrow = new Date(now); tomorrow.setDate(tomorrow.getDate() + 1);
+        if (diffH < 1) {
+          resetStr = 'resets in ' + diffM + 'm';
+        } else if (resetDate.toDateString() === now.toDateString()) {
+          resetStr = 'resets today ' + timeStr;
+        } else if (resetDate.toDateString() === tomorrow.toDateString()) {
+          resetStr = 'resets tomorrow ' + timeStr;
+        } else {
+          var dayStr = resetDate.toLocaleDateString([], { month: 'short', day: 'numeric' });
+          resetStr = 'resets ' + dayStr + ' ' + timeStr;
+        }
+      }
+    }
+
+    var paceText = ahead
       ? '<span class="over">ahead of pace</span>'
       : '<span class="under">behind pace</span>';
+    if (resetStr) paceText += ' <span class="reset-time">· ' + resetStr + '</span>';
     detail.innerHTML = paceText;
   }
 

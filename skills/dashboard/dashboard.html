@@ -2056,6 +2056,114 @@
     font-size: 0.68rem;
     letter-spacing: 0.02em;
   }
+
+  /* TOP 3 FOCUS */
+  .top3-section {
+    margin-bottom: 24px;
+  }
+
+  .top3-heading {
+    font-size: 0.68rem;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--text-secondary);
+    font-weight: 600;
+    margin-bottom: 12px;
+  }
+
+  .top3-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+  }
+
+  .top3-card {
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 18px 20px;
+    cursor: pointer;
+    transition: border-color 0.15s ease, transform 0.15s ease, background 0.15s ease;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .top3-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 3px;
+    border-radius: 8px 8px 0 0;
+  }
+
+  .top3-card[data-priority="1"]::before { background: var(--p1); }
+  .top3-card[data-priority="2"]::before { background: var(--p2); }
+  .top3-card[data-priority="3"]::before { background: var(--p3); }
+
+  .top3-card:hover {
+    border-color: var(--border-subtle);
+    transform: translateY(-2px);
+    background: var(--bg-elevated);
+  }
+
+  .top3-card.expanded {
+    background: var(--bg-elevated);
+    border-color: var(--border);
+  }
+
+  .top3-card-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 8px;
+  }
+
+  .top3-card-rank {
+    font-size: 1.0rem;
+    font-weight: 700;
+    color: var(--text-dim);
+    min-width: 20px;
+  }
+
+  .top3-card-title {
+    font-size: 0.88rem;
+    font-weight: 500;
+    color: var(--text-primary);
+    line-height: 1.4;
+    margin-bottom: 10px;
+  }
+
+  .top3-card-meta {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+
+  .top3-card-age {
+    font-size: 0.65rem;
+    color: var(--text-dim);
+    margin-left: auto;
+  }
+
+  .top3-card-desc {
+    font-size: 0.72rem;
+    color: var(--text-secondary);
+    line-height: 1.5;
+    border-top: 1px solid var(--border-subtle);
+    padding-top: 8px;
+    margin-top: 10px;
+  }
+
+  .top3-card .card-details {
+    display: none;
+  }
+
+  .top3-card.expanded .card-details {
+    display: block;
+  }
 </style>
 </head>
 <body>
@@ -2086,6 +2194,9 @@
     </button>
     <button class="tab" data-view="workers" onclick="switchView('workers')">
       <span class="tab-label"><kbd>W</kbd> Workers <span class="tab-badge live" id="workers-badge" style="display:none;">0</span></span>
+    </button>
+    <button class="tab" data-view="command" onclick="switchView('command')">
+      <span class="tab-label"><kbd>C</kbd> Command Center</span>
     </button>
   </div>
   <div class="tab-bar-right">
@@ -3265,21 +3376,58 @@ function renderCommandCenter() {
     return;
   }
 
-  // Status bar
-  var html = '<div class="command-bar-section">';
-  html += '<div class="status-bar-chart">';
-  activeStatuses.forEach(function(s) {
-    html += '<div class="status-bar-segment" data-status="' + s + '" style="flex:' + counts[s] + ';">' + counts[s] + '</div>';
-  });
-  html += '</div>';
+  var html = '';
 
-  var gridCols = activeStatuses.map(function(s) { return counts[s] + 'fr'; }).join(' ');
-  html += '<div style="display:grid;grid-template-columns:' + gridCols + ';gap:2px;margin-top:6px;">';
-  var shortLabels = { done: 'Done', progress: 'In Progress', blocked: 'Blk', notstarted: 'Not Started', draft: 'Draft' };
-  activeStatuses.forEach(function(s) {
-    html += '<div class="bar-label">' + shortLabels[s] + '</div>';
+  // Top 3 Focus section
+  var actionable = filtered.filter(function(t) {
+    return (t.status === 'progress' || t.status === 'notstarted') && t.priority <= 2;
   });
-  html += '</div></div>';
+  if (actionable.length < 3) {
+    actionable = filtered.filter(function(t) {
+      return (t.status === 'progress' || t.status === 'notstarted') && t.priority <= 3;
+    });
+  }
+  actionable.sort(function(a, b) {
+    // Primary: priority ascending (P1 first)
+    var pd = a.priority - b.priority;
+    if (pd !== 0) return pd;
+    // Secondary: status (in_progress before not_started)
+    var sw = { progress: 0, notstarted: 1 };
+    return (sw[a.status] !== undefined ? sw[a.status] : 2) - (sw[b.status] !== undefined ? sw[b.status] : 2);
+  });
+  var top3 = actionable.slice(0, 3);
+
+  if (top3.length > 0) {
+    html += '<div class="top3-section">';
+    html += '<div class="top3-heading">Top 3 Focus</div>';
+    html += '<div class="top3-grid">';
+    var ranks = ['#1', '#2', '#3'];
+    top3.forEach(function(task, i) {
+      var now = new Date();
+      var ageStr = '';
+      if (task.added) {
+        var added = parseDate(task.added);
+        if (added) {
+          var days = Math.floor((now - added) / (1000 * 60 * 60 * 24));
+          ageStr = days + 'd';
+        }
+      }
+      html += '<div class="top3-card" data-priority="' + task.priority + '" role="button" tabindex="0" aria-expanded="false" onclick="toggleTop3Card(this)" onkeydown="handleCardKey(event,this)">';
+      html += '<div class="top3-card-header">';
+      html += '<span class="top3-card-rank">' + ranks[i] + '</span>';
+      html += '<span class="badge badge-p' + task.priority + '" style="font-size:0.65rem;padding:2px 7px;">' + priorityLabels[task.priority] + '</span>';
+      html += '<span class="badge badge-' + task.status + '" style="font-size:0.65rem;padding:2px 7px;"><span class="badge-dot"></span>' + statusCommandLabels[task.status] + '</span>';
+      if (ageStr) html += '<span class="top3-card-age">' + ageStr + '</span>';
+      html += '</div>';
+      html += '<div class="top3-card-title">' + escapeHtml(task.title) + '</div>';
+      if (task.notes) {
+        html += '<div class="top3-card-desc">' + escapeHtml(task.notes.length > 120 ? task.notes.slice(0, 120) + '...' : task.notes) + '</div>';
+      }
+      html += renderDetails(task, 'card-details');
+      html += '</div>';
+    });
+    html += '</div></div>';
+  }
 
   // Layout
   html += '<div class="command-layout">';
@@ -3333,6 +3481,22 @@ function renderCommandCenter() {
     html += '<div class="h-bar-track"><div class="h-bar-fill" style="width:' + pct + '%;background:var(--p' + p + ');' + (p >= 4 ? 'opacity:0.6;' : '') + '"></div></div>';
     html += '<span class="h-bar-value">' + count + '</span>';
     html += '</div>';
+  });
+  html += '</div></div>';
+
+  // Status distribution (below priority chart)
+  html += '<div class="stat-block">';
+  html += '<div class="stat-block-title">Status Distribution</div>';
+  html += '<div class="status-bar-chart" style="height:24px;margin-bottom:6px;">';
+  activeStatuses.forEach(function(s) {
+    html += '<div class="status-bar-segment" data-status="' + s + '" style="flex:' + counts[s] + ';">' + counts[s] + '</div>';
+  });
+  html += '</div>';
+  var gridCols = activeStatuses.map(function(s) { return counts[s] + 'fr'; }).join(' ');
+  html += '<div style="display:grid;grid-template-columns:' + gridCols + ';gap:2px;">';
+  var shortLabels = { done: 'Done', progress: 'Active', blocked: 'Blk', notstarted: 'Idle', draft: 'Draft' };
+  activeStatuses.forEach(function(s) {
+    html += '<div class="bar-label">' + shortLabels[s] + '</div>';
   });
   html += '</div></div>';
 
@@ -3437,6 +3601,10 @@ function toggleCard(el) {
 }
 
 function toggleRow(el) {
+  toggleExpand(el);
+}
+
+function toggleTop3Card(el) {
   toggleExpand(el);
 }
 

@@ -226,8 +226,8 @@ Complete and archive a loop.
 
 Every agent working on a loop step must:
 
-**On Start:**
-1. Read entire loop document
+**On Start (including after compaction):**
+1. Read entire loop document (the autonomous execution directive at the top reinforces: do not pause for user acknowledgment)
 2. Find step marked `[CURRENT]`
 3. Load context from Discoveries and Key Files
 
@@ -254,6 +254,7 @@ Every agent working on a loop step must:
 | Continuing from handoff | If handoff references a loop, resume via `/claude-code-skills:loop status` |
 | Creating acceptance criteria | Can use `/claude-code-skills:uat` to generate detailed test criteria |
 | Failure analysis | Use `/claude-code-skills:retro` after loop failure |
+| Context compaction during loop | `compaction-reread.js` hook auto-detects loop sessions and forces re-read of the active loop document. See `hooks/docs/compaction-reread.md`. |
 
 ---
 

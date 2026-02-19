@@ -1,6 +1,6 @@
 # Compaction Re-read Hooks
 
-Post-compaction state preservation for handler and worker sessions.
+Post-compaction state preservation for handler, worker, and loop sessions.
 
 ## Architecture
 
@@ -17,7 +17,8 @@ Two layers prevent context drift after compaction:
 |------|-----------|----------------|
 | Handler | `/tmp/claude-handler-{session_id}` marker exists | handler-state.md, active dispatch files |
 | Worker | `HOME=/tmp/claude-worker-config` | dispatch file only (contains contract + `## Progress` section) |
-| Regular | Neither | No action (silent pass-through) |
+| Loop | `/tmp/claude-loop-{session_id}` marker exists | active loop document in `docs/loops/*.loop.md` (most recently modified, non-archived) |
+| Regular | None of the above | No action (silent pass-through) |
 
 ## Hook Flow
 
@@ -31,6 +32,10 @@ Handler: /handler skill invoked
 Worker: launch-worker.sh "<name>" "<repo>" "<prompt>" "<dispatch-file>"
   → Writes dispatch file path to /tmp/claude-worker-config/.claude/worker-dispatch-path
 
+Loop: /loop skill invoked
+  → PostToolUse (Skill) fires → register-loop-session.js
+  → Writes /tmp/claude-loop-{session_id} (includes cwd for loop doc discovery)
+
 COMPACTION
 ──────────
 Context grows → compaction triggered
@@ -38,6 +43,7 @@ Context grows → compaction triggered
   → Detects session type, writes /tmp/claude-compaction-{session_id}
     - Handler marker: {type:"handler"}
     - Worker marker:  {type:"worker", dispatch_file:"..."}
+    - Loop marker:    {type:"loop", loop_file:"..."}
     - Regular:        no marker written
 
 POST-COMPACTION RE-READ (PreToolUse primary + Stop failsafe)
@@ -56,6 +62,7 @@ If Claude's post-compaction response uses NO tool calls:
 
   Handler reason: re-read handler-state.md, active dispatch files
   Worker reason:  re-read dispatch file (contains contract + ## Progress with incremental updates)
+  Loop reason:    re-read active loop document, find [CURRENT] step, continue without pausing
 ```
 
 ## Files
@@ -63,6 +70,7 @@ If Claude's post-compaction response uses NO tool calls:
 | File | Purpose |
 |------|---------|
 | `register-handler-session.js` | PostToolUse hook — registers handler sessions |
+| `register-loop-session.js` | PostToolUse hook — registers loop sessions (includes cwd for doc discovery) |
 | `compaction-reread.js` | PreCompact + PreToolUse + Stop hook — manages compaction markers and re-read injection |
 | `launch-worker.sh` | Worker launcher — writes dispatch path for worker detection |
 
@@ -74,6 +82,7 @@ All markers live in `/tmp/`:
 |--------|-----------|---------|----------|
 | `claude-handler-active` | handler skill (SKILL.md) | compaction-reread.js precompact | Entire session (until reboot) |
 | `claude-handler-{session_id}` | register-handler-session.js | compaction-reread.js precompact | Entire session |
+| `claude-loop-{session_id}` | register-loop-session.js | compaction-reread.js precompact | Entire session |
 | `claude-compaction-{session_id}` | compaction-reread.js precompact | compaction-reread.js pretooluse (primary) or stop (failsafe) | One-shot (deleted after consumption) |
 | `worker-dispatch-path` | launch-worker.sh | compaction-reread.js precompact | Entire worker session |
 
@@ -131,6 +140,31 @@ node compaction-reread.js stop <<< '{"session_id":"test2","stop_hook_active":fal
 rm -f /tmp/claude-compaction-test2 /tmp/claude-worker-config/.claude/worker-dispatch-path
 ```
 
+### Quick smoke test (loop chain)
+
+```bash
+cd ~/projects/claude-code-skills/hooks
+
+# 1. Register loop session (with cwd pointing to a project with active loop docs)
+echo '{"session_id":"test3","tool_input":{"skill":"loop"},"cwd":"/home/eli/projects/golf-clip"}' | node register-loop-session.js
+test -f /tmp/claude-loop-test3 && echo "PASS: loop registered"
+
+# 2. PreCompact
+echo '{"session_id":"test3"}' | node compaction-reread.js precompact
+cat /tmp/claude-compaction-test3 | python3 -m json.tool
+# Verify: type="loop", loop_file points to active .loop.md
+
+# 3. PreToolUse (should block with loop doc path)
+echo '{"session_id":"test3"}' | node compaction-reread.js pretooluse
+# Should output JSON with decision:"block", reason includes loop doc path and "Do NOT pause"
+
+# 4. PreToolUse again (should be silent — marker consumed)
+echo '{"session_id":"test3"}' | node compaction-reread.js pretooluse
+
+# Cleanup
+rm -f /tmp/claude-loop-test3 /tmp/claude-compaction-test3
+```
+
 ### Regular session (should be silent)
 
 ```bash
@@ -146,4 +180,6 @@ test ! -f /tmp/claude-compaction-test3 && echo "PASS: no marker for regular sess
 | Worker gets handler re-read instructions | HOME not set to worker config | Verify launch-worker.sh sets HOME correctly |
 | Re-read loops forever | stop_hook_active not breaking loop | Check Stop hook receives stop_hook_active=true on re-read response |
 | Script crashes block Claude | Should never happen — all catches exit(0) | Check stderr for error messages |
-| Marker accumulates in /tmp | Compaction markers are one-shot; handler markers persist | Handler markers cleaned on reboot (/tmp). No action needed. |
+| Loop agent pauses after compaction | Loop marker missing — skill invocation didn't fire hook | Verify `register-loop-session.js` is in settings.json PostToolUse hooks |
+| Loop re-read shows no loop file | No active `.loop.md` in project's `docs/loops/` | Ensure loop doc exists and isn't archived (`-archived` suffix) |
+| Marker accumulates in /tmp | Compaction markers are one-shot; handler/loop markers persist | Markers cleaned on reboot (/tmp). No action needed. |

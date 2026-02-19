@@ -111,6 +111,7 @@ claude-code-skills/
 │   ├── validate-dispatch.js  # Rejects malformed dispatch files
 │   ├── compaction-reread.js  # Post-compaction state re-read enforcement
 │   ├── register-handler-session.js  # Handler session registration
+│   ├── register-loop-session.js     # Loop session registration
 │   └── docs/
 │       └── compaction-reread.md  # Hook architecture documentation
 ├── sync-skills.sh       # Manual skill cache sync

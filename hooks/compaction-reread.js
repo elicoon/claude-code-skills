@@ -10,7 +10,8 @@
  * Session types:
  *   - handler: /tmp/claude-handler-{session_id} exists (written by register-handler-session.js PostToolUse hook)
  *   - worker:  HOME === /tmp/claude-worker-config (worker env)
- *   - regular: neither — exits silently
+ *   - loop:    /tmp/claude-loop-{session_id} exists (written by register-loop-session.js)
+ *   - regular: none of the above — exits silently
  *
  * Receives hook JSON via stdin with session_id (and stop_hook_active for stop mode).
  */
@@ -43,6 +44,50 @@ function isHandlerSession(sessionId) {
 
 function isWorkerSession() {
   return process.env.HOME === '/tmp/claude-worker-config';
+}
+
+function getLoopMarkerPath(sessionId) {
+  return path.join(MARKER_DIR, `claude-loop-${sessionId}`);
+}
+
+function isLoopSession(sessionId) {
+  try {
+    fs.accessSync(getLoopMarkerPath(sessionId));
+    return true;
+  } catch {}
+  return false;
+}
+
+function readLoopMarkerData(sessionId) {
+  try {
+    return JSON.parse(fs.readFileSync(getLoopMarkerPath(sessionId), 'utf-8'));
+  } catch {
+    return null;
+  }
+}
+
+function findActiveLoopDoc(cwd) {
+  // Look for non-archived loop docs in docs/loops/
+  const loopsDir = path.join(cwd, 'docs', 'loops');
+  try {
+    const files = fs.readdirSync(loopsDir);
+    const activeLoops = files.filter(f => f.endsWith('.loop.md') && !f.includes('-archived'));
+    if (activeLoops.length === 0) return null;
+    // Return the most recently modified one
+    let latest = null;
+    let latestMtime = 0;
+    for (const f of activeLoops) {
+      const fullPath = path.join(loopsDir, f);
+      const stat = fs.statSync(fullPath);
+      if (stat.mtimeMs > latestMtime) {
+        latestMtime = stat.mtimeMs;
+        latest = fullPath;
+      }
+    }
+    return latest;
+  } catch {
+    return null;
+  }
 }
 
 function getTmuxWindowName() {
@@ -97,6 +142,15 @@ function buildWorkerReason(dispatchFile) {
   ].join('\n');
 }
 
+function buildLoopReason(loopFile) {
+  return [
+    'Context was just compacted. You are in an active loop session. Before continuing:',
+    `1. Re-read the loop document at ${loopFile}`,
+    '2. Find the step marked [CURRENT] and review Discoveries and What Failed sections.',
+    '3. Continue executing the current step. Do NOT pause for user acknowledgment.',
+  ].join('\n');
+}
+
 async function main() {
   const hookType = process.argv[2];
 
@@ -138,6 +192,16 @@ async function main() {
         session_id: sessionId,
         dispatch_file: dispatchFile,
       }));
+    } else if (isLoopSession(sessionId)) {
+      const loopMarker = readLoopMarkerData(sessionId);
+      const cwd = (loopMarker && loopMarker.cwd) || process.cwd();
+      const loopDoc = findActiveLoopDoc(cwd);
+      fs.writeFileSync(markerPath, JSON.stringify({
+        type: 'loop',
+        timestamp: new Date().toISOString(),
+        session_id: sessionId,
+        loop_file: loopDoc,
+      }));
     }
     // Regular session — exit silently
     process.exit(0);
@@ -165,6 +229,10 @@ async function main() {
       reason = buildWorkerReason(markerData.dispatch_file);
     } else if (markerData.type === 'worker') {
       reason = 'Context was just compacted. Re-read your dispatch file and review the ## Progress section before continuing.';
+    } else if (markerData.type === 'loop' && markerData.loop_file) {
+      reason = buildLoopReason(markerData.loop_file);
+    } else if (markerData.type === 'loop') {
+      reason = 'Context was just compacted. You are in an active loop session. Find and re-read the active loop document in docs/loops/ and continue executing the [CURRENT] step. Do NOT pause for user acknowledgment.';
     } else {
       process.exit(0);
     }
@@ -201,6 +269,10 @@ async function main() {
     } else if (markerData.type === 'worker') {
       // Worker without dispatch path — generic re-read
       reason = 'Context was just compacted. Re-read your dispatch file and review the ## Progress section before continuing.';
+    } else if (markerData.type === 'loop' && markerData.loop_file) {
+      reason = buildLoopReason(markerData.loop_file);
+    } else if (markerData.type === 'loop') {
+      reason = 'Context was just compacted. You are in an active loop session. Find and re-read the active loop document in docs/loops/ and continue executing the [CURRENT] step. Do NOT pause for user acknowledgment.';
     } else {
       // Unknown type — shouldn't happen but handle gracefully
       process.exit(0);

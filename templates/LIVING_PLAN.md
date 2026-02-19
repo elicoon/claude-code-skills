@@ -1,5 +1,7 @@
 # LIVING_PLAN: [Title]
 
+> **AUTONOMOUS EXECUTION:** Do not pause for user acknowledgment. After context compaction, re-read this document from the top, find the `[CURRENT]` step, and continue executing until all acceptance criteria are met or max iterations reached.
+
 <!--
 RALPH LOOP TEMPLATE
 ===================

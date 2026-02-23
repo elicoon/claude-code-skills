@@ -518,7 +518,7 @@ All PR-producing work must pass this sequence before creating a PR:
 <!-- Workers: append entries here after each milestone. Format: ### YYYY-MM-DD HH:MM — [milestone]. Never delete previous entries. -->
 ~~~
 
-**IMPORTANT:** Before writing the dispatch file, resolve ALL `{DEV_ORG_PATH}` placeholders to the actual absolute path (e.g., `/home/eli/projects/dev-org`). Workers are launched in the target project's directory and have no way to resolve dev-org path variables. The dispatch file must contain concrete paths.
+**IMPORTANT:** Before writing the dispatch file, resolve ALL `{DEV_ORG_PATH}` placeholders to the actual absolute path (e.g., `/path/to/dev-org`). Workers are launched in the target project's directory and have no way to resolve dev-org path variables. The dispatch file must contain concrete paths.
 
 After writing each dispatch file, **read it back** to verify it's complete and all paths are absolute.
 
@@ -530,7 +530,7 @@ For each dispatch file, determine execution method:
 ```bash
 {DEV_ORG_PATH}/scripts/launch-worker.sh "<name>" "<repo-path>" "You are a worker session dispatched by the handler. Read and execute <absolute-path-to-dispatch-file> — follow the worker contract exactly." "<absolute-path-to-dispatch-file>"
 ```
-**IMPORTANT:** Replace `{DEV_ORG_PATH}` with the resolved absolute path (e.g., `/home/eli/projects/dev-org`). Replace `<absolute-path-to-dispatch-file>` with the full path to the dispatch file. Do not leave path variables in the command.
+**IMPORTANT:** Replace `{DEV_ORG_PATH}` with the resolved absolute path (e.g., `/path/to/dev-org`). Replace `<absolute-path-to-dispatch-file>` with the full path to the dispatch file. Do not leave path variables in the command.
 
 **Note:** `launch-worker.sh` handles all worker config setup (credentials, SSH keys, git config) via `setup-worker-config.sh` automatically. Output is logged to `/tmp/handler-logs/<name>.jsonl` and includes a startup health check.
 

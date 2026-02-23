@@ -78,7 +78,7 @@ The debug-loop uses a Stop hook to enforce phase transitions. Add to `~/.claude/
   "hooks": [
     {
       "type": "command",
-      "command": "node c:/Users/Eli/projects/claude-code-skills/hooks/debug-loop-stop.js",
+      "command": "node ~/claude-code-skills/hooks/debug-loop-stop.js",
       "timeout": 30
     }
   ]

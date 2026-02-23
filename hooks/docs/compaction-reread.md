@@ -146,7 +146,7 @@ rm -f /tmp/claude-compaction-test2 /tmp/claude-worker-config/.claude/worker-disp
 cd ~/projects/claude-code-skills/hooks
 
 # 1. Register loop session (with cwd pointing to a project with active loop docs)
-echo '{"session_id":"test3","tool_input":{"skill":"loop"},"cwd":"/home/eli/projects/golf-clip"}' | node register-loop-session.js
+echo '{"session_id":"test3","tool_input":{"skill":"loop"},"cwd":"/path/to/your-project"}' | node register-loop-session.js
 test -f /tmp/claude-loop-test3 && echo "PASS: loop registered"
 
 # 2. PreCompact
